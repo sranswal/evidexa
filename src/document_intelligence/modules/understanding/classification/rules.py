@@ -1,0 +1,128 @@
+"""Classification rules, keywords, and pattern dictionaries for document classification."""
+
+from __future__ import annotations
+
+import re
+from typing import Final
+
+from document_intelligence.domain.enums import DocumentClass
+
+# Weighted keyword profiles for each document class.
+# Each entry is (pattern_str, weight, case_insensitive_regex)
+CLASS_PATTERNS: Final[dict[DocumentClass, list[tuple[str, float]]]] = {
+    DocumentClass.INVOICE: [
+        (r"\b(?:tax\s+)?invoice\b", 3.0),
+        (r"\bbill\s+to\b", 2.5),
+        (r"\bsold\s+to\b", 2.0),
+        (r"\binvoice\s*(?:no|num|number|#)\b", 3.0),
+        (r"\binvoice\s+date\b", 2.5),
+        (r"\bdue\s+date\b", 2.0),
+        (r"\bamount\s+due\b", 2.5),
+        (r"\bbalance\s+due\b", 2.0),
+        (r"\bsubtotal\b", 1.5),
+        (r"\bpayment\s+terms\b", 1.5),
+        (r"\bremit\s+to\b", 2.0),
+        (r"\bpurchase\s+order\b", 1.5),
+        (r"\bp\.?o\.?\s*(?:no|number|#)\b", 1.5),
+        (r"\bgstin\b", 2.0),
+        (r"\bvat\s+(?:reg|no|number)\b", 2.0),
+        (r"\bunit\s+price\b", 1.5),
+        (r"\bline\s+total\b", 1.5),
+    ],
+    DocumentClass.RECEIPT: [
+        (r"\b(?:sales\s+|cash\s+)?receipt\b", 3.0),
+        (r"\bmerchant\b", 2.0),
+        (r"\bcashier\b", 2.5),
+        (r"\bregister\s*#?\b", 2.0),
+        (r"\bterminal\s*#?\b", 2.0),
+        (r"\bpos\s+(?:system|slip|terminal)\b", 2.5),
+        (r"\bchange\s+due\b", 2.5),
+        (r"\btendered\b", 2.5),
+        (r"\bitems?\s+sold\b", 1.5),
+        (r"\bstore\s*(?:#|no|number)\b", 1.5),
+        (r"\bpayment\s+method\b", 2.0),
+        (r"\bcard\s*(?:ending|#)\b", 1.5),
+        (r"\bauth\s*(?:code|#)\b", 1.5),
+        (r"\bthank\s+you\s+for\s+(?:your\s+)?(?:shopping|visiting|business)\b", 2.0),
+    ],
+    DocumentClass.BANK_STATEMENT: [
+        (r"\bbank\s+statement\b", 3.5),
+        (r"\bstatement\s+of\s+account\b", 3.5),
+        (r"\baccount\s+statement\b", 3.0),
+        (r"\bopening\s+balance\b", 3.0),
+        (r"\bclosing\s+balance\b", 3.0),
+        (r"\baccount\s*(?:no|num|number|#)\b", 2.0),
+        (r"\baccount\s+summary\b", 2.5),
+        (r"\bavailable\s+balance\b", 2.0),
+        (r"\bwithdrawals?\b", 1.5),
+        (r"\bdeposits?\b", 1.5),
+        (r"\bclearing\s+voucher\b", 2.0),
+        (r"\bdebit\s+amount\b", 1.5),
+        (r"\bcredit\s+amount\b", 1.5),
+        (r"\bledger\s+balance\b", 2.0),
+        (r"\biban\b", 2.0),
+        (r"\bswift\s*(?:code|bic)?\b", 2.0),
+        (r"\bifsc\s*(?:code)?\b", 2.0),
+        (r"\brouting\s+number\b", 2.0),
+        (r"\bsort\s+code\b", 2.0),
+    ],
+    DocumentClass.IDENTITY_DOCUMENT: [
+        (r"\bpassport\b", 3.5),
+        (r"\bidentity\s+card\b", 3.5),
+        (r"\bdriver(?:'s)?\s+licen[sc]e\b", 3.5),
+        (r"\bdriving\s+licen[sc]e\b", 3.5),
+        (r"\bnational\s+id(?:entity)?\b", 3.0),
+        (r"\brepublic\s+of\b", 2.0),
+        (r"\bdate\s+of\s+birth\b", 2.5),
+        (r"\bd\.?o\.?b\.?\b", 2.0),
+        (r"\bnationality\b", 2.0),
+        (r"\bplace\s+of\s+birth\b", 2.0),
+        (r"\bgender\b", 1.5),
+        (r"\baadhaar\b", 3.5),
+        (r"\bunique\s+identification\s+authority\b", 3.0),
+        (r"\belection\s+commission\b", 3.0),
+        (r"\bvoter\s+(?:id|card)\b", 3.0),
+    ],
+    DocumentClass.TAX_DOCUMENT: [
+        (r"\btax\s+return\b", 3.5),
+        (r"\bincome\s+tax\b", 3.0),
+        (r"\binternal\s+revenue\s+service\b", 3.5),
+        (r"\bform\s+1040\b", 3.5),
+        (r"\bform\s+16\b", 3.5),
+        (r"\bw-?2\b", 3.5),
+        (r"\bform\s+1099\b", 3.5),
+        (r"\bassessment\s+year\b", 3.0),
+        (r"\bfinancial\s+year\b", 2.0),
+        (r"\bpermanent\s+account\s+number\b", 3.5),
+        (r"\bpan\s+card\b", 3.0),
+        (r"\btax\s+deducted\s+at\s+source\b", 3.0),
+        (r"\btds\s+certificate\b", 3.0),
+        (r"\bgross\s+total\s+income\b", 2.5),
+        (r"\btaxable\s+income\b", 2.5),
+    ],
+    DocumentClass.CONTRACT: [
+        (r"\bagreement\b", 2.5),
+        (r"\bcontract\b", 2.5),
+        (r"\bmemorandum\s+of\s+understanding\b", 3.0),
+        (r"\bmou\b", 2.0),
+        (r"\bwhereas\b", 3.0),
+        (r"\bhereby\b", 2.0),
+        (r"\bin\s+witness\s+whereof\b", 3.5),
+        (r"\bwitnesseth\b", 3.0),
+        (r"\bterms\s+and\s+conditions\b", 2.0),
+        (r"\bthe\s+parties\s+(?:agree|hereto)\b", 2.5),
+        (r"\bindemnification\b", 2.0),
+        (r"\bseverability\b", 2.0),
+        (r"\bgoverning\s+law\b", 2.0),
+        (r"\bconfidentiality\s+agreement\b", 3.0),
+        (r"\bnon-?disclosure\s+agreement\b", 3.0),
+        (r"\bnda\b", 2.0),
+        (r"\bsignatures?\b", 1.5),
+    ],
+}
+
+# Compiled regex cache
+COMPILED_PATTERNS: Final[dict[DocumentClass, list[tuple[re.Pattern[str], float, str]]]] = {
+    doc_class: [(re.compile(pat, re.IGNORECASE), weight, pat) for pat, weight in patterns]
+    for doc_class, patterns in CLASS_PATTERNS.items()
+}

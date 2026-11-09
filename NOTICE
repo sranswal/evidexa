@@ -1,0 +1,64 @@
+EVIDEXA
+Copyright (c) 2026 EVIDEXA contributors.
+
+This product includes software developed as part of the EVIDEXA project
+(https://github.com/shubhamranswal/evidexa).
+
+===============================================================================
+Third-Party Software Attributions & Notices
+===============================================================================
+
+This project incorporates, depends upon, or interfaces with the following open-source
+components:
+
+1. pdf-forensics-kit
+   Copyright (c) 2026 Johan Overgaard
+   License: MIT License
+   Website: https://github.com/overjoyde/pdf-forensics-kit
+   Revision: d997e87cacf02812d647c873ca16fe8c5b055938
+
+2. RapidOCR & PaddleOCR Neural Weights
+   Copyright (c) 2020-2024 PaddlePaddle Authors / RapidAI Contributors
+   License: Apache License 2.0
+   Website: https://github.com/RapidAI/RapidOCR
+   Bundled ONNX Models:
+   - ch_PP-OCRv4_det_infer.onnx
+   - ch_PP-OCRv4_rec_infer.onnx
+   - ch_ppocr_mobile_v2.0_cls_infer.onnx
+
+3. pikepdf
+   Copyright (c) 2018-2024 James R. Barlow
+   License: Mozilla Public License 2.0 (MPL-2.0)
+   Website: https://github.com/pikepdf/pikepdf
+
+4. pypdf
+   Copyright (c) 2006-2008 Mathieu Fenniak
+   Copyright (c) 2022-2024 Martin Thoma and pypdf contributors
+   License: BSD 3-Clause License
+   Website: https://github.com/py-pdf/pypdf
+
+5. pypdfium2
+   Copyright (c) 2021-2024 pypdfium2 contributors
+   License: BSD-3-Clause / Apache-2.0
+   Website: https://github.com/pypdfium2-team/pypdfium2
+
+6. OpenCV (Headless)
+   Copyright (c) 2024 OpenCV Foundation / Intel Corporation
+   License: Apache License 2.0
+   Website: https://opencv.org/
+
+7. Pillow
+   Copyright (c) 1997-2024 Jeffrey A. Clark (Alex) and contributors
+   License: MIT-CMU (HPND)
+   Website: https://python-pillow.org/
+
+8. FastAPI & Starlette
+   Copyright (c) 2018-2024 Sebastián Ramírez / Encode OSS Ltd.
+   License: MIT License / BSD 3-Clause License
+   Website: https://fastapi.tiangolo.com/
+
+9. SQLAlchemy & Alembic
+   Copyright (c) 2005-2024 Michael Bayer
+   License: MIT License
+   Website: https://www.sqlalchemy.org/
+

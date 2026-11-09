@@ -1,0 +1,146 @@
+# ==============================================================================
+# EVIDEXA Git Ignore Policy
+# Platform: Digital Forensics & Contextual Document Intelligence
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Python & Bytecode
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# ------------------------------------------------------------------------------
+# Build, Distribution & Packaging
+# ------------------------------------------------------------------------------
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ------------------------------------------------------------------------------
+# Virtual Environments
+# ------------------------------------------------------------------------------
+.venv/
+.venv*/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# Environment Variables, Secrets & Credentials (STRICT PRIVACY)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.jks
+credentials.json
+secrets.*
+
+# ------------------------------------------------------------------------------
+# IDE & Editor Files
+# ------------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+
+# ------------------------------------------------------------------------------
+# Testing, Coverage & Type Checking
+# ------------------------------------------------------------------------------
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+nosetests.xml
+
+# ------------------------------------------------------------------------------
+# Local Data, Databases, Evidence Storage & Forensics (NEVER COMMIT USER DATA)
+# ------------------------------------------------------------------------------
+data/
+data/**
+uploads/
+artifacts/
+snapshots/
+temp/
+tmp/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.artifact
+*.snapshot
+
+# ------------------------------------------------------------------------------
+# Upstream Clones & Third-Party Repositories (STRICTLY ISOLATED)
+# ------------------------------------------------------------------------------
+upstream/
+upstream/**
+
+# ------------------------------------------------------------------------------
+# Internal Engineering Archives & Temporary Experiments
+# ------------------------------------------------------------------------------
+experiments/
+research/
+archive/
+*-engineering-archive/
+.system_generated/
+_backup*/
+
+# ------------------------------------------------------------------------------
+# Internal Engineering & Cleanup Reports (Internal-Only Records)
+# ------------------------------------------------------------------------------
+docs/PHASE_*.md
+docs/*_REPORT.md
+docs/REPOSITORY_CURATORIAL_CLEANUP_REPORT.md
+docs/FINAL_PUBLIC_REPOSITORY_PREFLIGHT_REPORT.md
+docs/DECISIONS.md
+docs/PDF_STRUCTURAL_ANALYSIS.md
+docs/PROCESSING_LIFECYCLE.md
+docs/THREAT_MODEL.md
+docs/IMPLEMENTATION_STATUS.md
+docs/FORENSIC_ADAPTER_ARCHITECTURE.md
+
+# ------------------------------------------------------------------------------
+# Logs & Diagnostic Outputs
+# ------------------------------------------------------------------------------
+*.log
+logs/
+
+# ------------------------------------------------------------------------------
+# Operating System Artifacts
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
