@@ -1,6 +1,13 @@
 <div align="center">
 
-<img src="assets/logo.png" alt="EVIDEXA Logo" width="480" />
+<p align="center">
+  <img
+    src="assets/logo.png"
+    alt="EVIDEXA Logo"
+    width="480"
+    style="background-color: #0d1117; padding: 20px; border-radius: 12px;"
+  />
+</p>
 
 ### **AI-Powered Digital Forensics & Document Intelligence**
 
