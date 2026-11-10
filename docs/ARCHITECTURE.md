@@ -1,5 +1,5 @@
 # EVIDEXA Platform Architecture Blueprint: Modular Monolith
-**Platform:** EVIDEXA — AI-Powered Digital Forensics & Document Intelligence  
+**Platform:** EVIDEXA - AI-Powered Digital Forensics & Document Intelligence  
 **System:** Modular Monolith Clean Architecture  
 **Status:** Approved & Implemented  
 **Date:** November 2026
@@ -62,6 +62,9 @@ document-intelligence-platform/
 │       │       ├── findings.py          # /api/v1/cases/{case_id}/findings query
 │       │       ├── ocr.py               # /api/v1/cases/{case_id}/documents/{document_id}/ocr endpoints
 │       │       ├── understanding.py     # /api/v1/cases/{case_id}/documents/{document_id}/classification & extraction
+│       │       ├── consistency.py       # /api/v1/cases/{case_id}/consistency endpoints
+│       │       ├── graph.py             # /api/v1/cases/{case_id}/graph investigation query endpoints
+│       │       ├── dossier.py           # /api/v1/cases/{case_id}/dossiers & /findings/aggregated endpoints
 │       │       └── audit.py             # /api/v1/cases/{case_id}/audit-events & /verify
 │       │
 │       ├── core/                        # Core Cross-Cutting Foundation
@@ -79,8 +82,11 @@ document-intelligence-platform/
 │       │       ├── processing_run.py    # Pipeline execution tracking
 │       │       ├── evidence_node.py     # Atomic evidence tokens & bounding boxes
 │       │       ├── forensic_finding.py  # Anomaly interpretations citing evidence
+│       │       ├── consistency.py       # Cross-document consistency findings, comparisons, reviews
 │       │       ├── classification.py    # Document & page classification candidates & overrides
 │       │       ├── extraction.py        # Extraction schemas, field definitions, candidate values
+│       │       ├── entity_resolution.py # Cross-document entity mentions & candidate matches
+│       │       ├── relationship.py      # Directed cross-document ontology relationships (V2)
 │       │       ├── ocr.py               # ExtractedDocumentText, tokens, lines, tables
 │       │       ├── investigation_dossier.py # Versioned, auditable report dossiers
 │       │       ├── review_decision.py   # Human investigator review records
@@ -93,11 +99,23 @@ document-intelligence-platform/
 │       │   ├── forensics/               # Forensic adapters (PDF structural, ELA, copy-move)
 │       │   ├── ocr/                     # PDFium, RapidOCR, Hybrid routing adapters
 │       │   ├── understanding/           # Document classification & structured field extraction
-│       │   │   ├── classification/      # RuleBasedDocumentClassifier & compiled regex patterns
-│       │   │   ├── extraction/          # StructuredFieldExtractor & validators
-│       │   │   │   ├── schemas/         # Invoice, Receipt, Bank Statement schemas & registry
-│       │   │   │   └── validators.py    # Normalizers (date, currency, decimal), masking & arithmetic
-│       │   │   └── service.py           # DocumentUnderstandingService application coordinator
+│       │   ├── entity_resolution/       # Deterministic entity matching & candidate resolution
+│       │   ├── relationship_detection/  # Cross-document graph detectors & ontology engine
+│       │   ├── consistency/             # Cross-document consistency engine & deterministic rules
+│       │   │   ├── context.py           # ConsistencyContext holding docs, fields, signals
+│       │   │   ├── financial.py         # Strict Decimal precision & currency comparison rules
+│       │   │   ├── engine.py            # ConsistencyRuleRegistry & ConsistencyAnalysisEngine
+│       │   │   ├── rules/               # Rule families (A: invoice/receipt, B: po/invoice, C: bank/inv, D: identity, E: duplicates, F: temporal)
+│       │   │   └── service.py           # ConsistencyAnalysisService application coordinator
+│       │   ├── graph/                   # Unified Evidence Graph query layer & pathfinding
+│       │   │   ├── projector.py         # Deterministic relational projection engine
+│       │   │   ├── engine.py            # Graph exploration, neighborhood BFS & cycle-safe pathfinding
+│       │   │   └── service.py           # EvidenceGraphService query coordinator
+│       │   ├── dossier/                 # Findings aggregation & evidence dossier engine
+│       │   │   ├── aggregator.py        # Unified findings compiler across forensic/consistency subsystems
+│       │   │   ├── generator.py         # 12-section dossier compiler with SHA-256 canonical hashing
+│       │   │   ├── export/              # Deterministic PDF (pikepdf) and JSON artifact exporters
+│       │   │   └── service.py           # InvestigationDossierService coordinator
 │       │   └── audit/ledger.py          # Append-only hash chain, checkpointing & lock service
 │       │
 │       └── infrastructure/              # Infrastructure & Adapters
@@ -111,6 +129,10 @@ document-intelligence-platform/
 │               ├── case_repository.py   # Case persistence repository
 │               ├── document_repository.py # Document persistence repository
 │               ├── finding_repository.py  # Finding persistence repository
+│               ├── entity_match_repository.py # Entity match & review persistence
+│               ├── relationship_repository.py # Directed relationship persistence
+│               ├── consistency_repository.py  # Consistency finding & review persistence
+│               ├── dossier_repository.py      # Investigation dossier & review persistence
 │               └── audit_repository.py  # Append-only audit & checkpoint repository
 │
 ├── alembic/                             # Database migrations
@@ -118,9 +140,12 @@ document-intelligence-platform/
 │   ├── script.py.mako
 │   └── versions/
 │       ├── 001_initial_schema.py        # Initial SQLite DDL migration
-│       └── 002_architecture_hardening.py # Checkpoints, link tables, unique constraints
+│       ├── 002_architecture_hardening.py # Checkpoints, link tables, unique constraints
+│       ├── 006_relationship_semantics.py # Directed ontology and evidentiary review models
+│       ├── 007_cross_document_consistency.py # Cross-document consistency models & review history
+│       └── 008_evidence_dossier.py     # Dossier payload, content hash, sections, aggregated reviews
 │
-├── tests/                               # Comprehensive Automated Test Suite (59 tests)
+├── tests/                               # Comprehensive Automated Test Suite (369 tests)
 │   ├── conftest.py                      # Isolated test database and client fixtures
 │   ├── architecture/
 │   │   └── test_architecture_boundaries.py # AST-based layer isolation checks
@@ -221,6 +246,95 @@ The foundation provides clean extension points:
   - Relational Persistence & Alembic Migration 006 (`006_relationship_semantics`):
     - Added `ontology_version`, `legacy_relationship_type`, `status_determination_method`, and `duplicate_kind` to `detected_relationships`.
     - Safe data migration for historical V1 records, mapping legacy `ISSUED_BY`, `ISSUED_TO`, `ACCOUNT_HELD_BY`, and demoting co-occurrence `SUPPLIES` to `INVOICED` while preserving original legacy types and complete review history.
-- **Phase 3 (Agentic Investigation):** `langgraph` will orchestrate multi-step investigation graphs querying `CaseRepository` and `FindingRepository`.
-- **Phase 4 (Reporting):** Dossier generator will assemble `InvestigationDossier` instances and export verified PDF/HTML dossiers.
+- **Phase 2C.3.3 (Cross-Document Consistency Analysis Engine):**
+  - Modular Monolith Module `modules/consistency/`: Deterministic cross-document consistency engine evaluating 6 rule families:
+    - Family A: Invoice & Receipt (Totals, References, Merchant, Timing)
+    - Family B: Purchase Order & Invoice (PO Ref, Parties, Financials/Overrun, Line-Item Quantity & Price)
+    - Family C: Invoice & Bank Statement (Settlement match, Ambiguous multiple transactions, Timing)
+    - Family D: Supplier & Tax ID Consistency (Tax ID conflicts, unstated tax ID as insufficient evidence)
+    - Family E: Duplicate vs Conflicting Records (Byte-identical, semantic duplicates, conflicting invoice number reuse)
+    - Family F: Procurement & Payment Lifecycle Temporal Ordering (PO vs Invoice date, due date vs payment)
+  - Strict Arbitrary-Precision Financial Arithmetic: `minor_unit_quantization` using Python `Decimal` across all financial comparisons.
+  - Non-Verdict Evidentiary Semantics: Every check emits `CONSISTENT`, `INCONSISTENT`, `POTENTIAL_ANOMALY`, `INSUFFICIENT_EVIDENCE`, or `NOT_APPLICABLE`.
+  - Relational Persistence & Alembic Migration 007 (`007_cross_document_consistency`): Added `consistency_findings` and `consistency_reviews` tables.
+- **Phase 2C.4 (Unified Evidence Graph & Investigation Query Layer):**
+  - Modular Monolith Module `modules/graph/`: Framework-neutral in-memory projection over authoritative relational records without persisting a duplicate graph database.
+  - Grounded Node & Edge Types: Represents cases, documents, evidence nodes, forensic findings, consistency findings, organizations, persons, invoices, receipts, purchase orders, bank transactions, and accounts.
+  - Deterministic Identity Hashing: Stable UUIDv5 node and edge identifiers grounded in case ID, node type, and source entity ID (`deterministic_node_id`, `deterministic_edge_id`).
+  - Graph Traversal & Query Engine (`EvidenceGraphEngine`):
+    - Bounded graph filtering by node type, relationship type, evidentiary status, and document IDs.
+    - Cycle-safe k-hop neighborhood BFS expansion around seed nodes with depth and node limit safeguards.
+    - Evidentiary path search between source and target nodes with cycle prevention, max depth bounds, and `confirmed_only` filtering.
+    - Sanitized display labels guaranteeing zero unmasked plaintext PII.
+- **Phase 2D (Findings Aggregation, Investigator Workflow & Evidence Dossier):**
+  - Findings Aggregation Layer (`modules/dossier/service.py`): Deterministic aggregation combining forensic findings (`FindingRepository`) and cross-document consistency findings (`ConsistencyRepository`) into unified `AggregatedFinding` entities.
+  - Epistemic Evidentiary Statuses: Strict 4-tier model (`CONFIRMED`, `CANDIDATE`, `CONTRADICTED`, `UNRESOLVED`) with human review override ledger (`AggregatedFindingReview`).
+  - 12-Section Investigation Evidence Dossier: Standardized analytical structure compiling Executive Summary, Scope, Document Registry, Forensic Metadata, Optical Analysis, Entity Resolution, Cross-Document Consistency, Evidence Graph, Chronology, and Cryptographic Hash Manifest.
+  - Vector PDF & Structured JSON Export: Deterministic, vector PDF rendering (`PdfDossierExporter`) using `pikepdf` with legal non-adjudication disclaimers and JSON data exchange (`JsonDossierExporter`).
+  - Relational Persistence & Alembic Migration 008 (`008_evidence_dossier`): Schema migration for `investigation_dossiers` and `aggregated_finding_reviews`.
+- **Phase 3A (Investigator Frontend Foundation & Application Shell):**
+  - Modern Single-Page Application (SPA) in `frontend/` powered by React 18, TypeScript, Vite, and Tailwind CSS.
+  - Strict Brand Identity (`docs/BRAND_GUIDE.md`): Deep Midnight foundation (`#0B132B`), Charcoal containers (`#1C2541`), Slate borders (`#2E3856`), Electric Cyan accent (`#00E5FF`), and accessible status signals.
+  - Accessible Evidentiary Semantics: Guaranteed text label + semantic icon pairing across all badges (`StatusBadge`), eliminating color-alone communication.
+  - Typed API Client Layer (`src/api/client.ts`): Typed HTTP client with RFC 7807 error envelope extraction, custom `ApiClientError`, query string serializer, and TanStack React Query cache invalidation.
+  - Workspace Navigation & Layout Shell: Dynamic sidebar with geometric mark SVG logo, Case Context switcher, active case indicator, and breadcrumb header.
+  - Investigation Case Management (`CasesPage`): Case catalog, lifecycle filtering (`ACTIVE`, `UNDER_REVIEW`, `COMPLETED`, `ARCHIVED`, `DRAFT`), search, and case creation modal.
+  - Case Overview Dashboard (`CaseOverviewPage`): Authentic metrics grid (documents, findings, consistency runs, relationships, dossiers), recent documents table, priority findings, and dossier generation/export actions.
+  - Clean Phase Placeholders (`PlaceholderPage`): Clear module cards for upcoming Phase 3B (Document Inspection), 3C (Interactive Graph Canvas), 3D (Findings Workbench), and 3E (Dossier Workbench).
+- **Phase 3B.1 (Document Inventory, Upload & Processing Workspace):**
+  - Case-scoped Document Inventory (`DocumentsPage`) with real-time KPI metrics, search, format filtering, multi-criteria sorting, and responsive pagination.
+  - Secure Document Upload Modal (`DocumentUploadModal`) with drag-and-drop, 50MB file size ceiling, extension checks, duplicate detection, and examiner attribution.
+  - Slide-Over Document Detail Drawer (`DocumentDetailDrawer`) displaying full copyable SHA-256 digests, physical storage keys, runs history, and raw evidence download.
+  - Real-Time Processing Controls (`ProcessingControls`) executing backend PDF structural forensics, visual ELA, hybrid OCR, document classification, and structured field extraction with in-flight safeguards.
+- **Phase 3B.2 (Visual Document Heatmap & OCR Inspector):**
+  - High-performance visual PDF canvas viewer (`PdfDocumentViewer`) powered by `pdfjs-dist` with synchronized zoom (25%–300%), rotation (90° increments), fit-to-width, and reset controls.
+  - Canonical Coordinate Transformation Contract (`frontend/src/utils/coordinates.ts`): Rigorous conversion of backend top-left normalized coordinates (`NORMALIZED_0_1`) to display pixels across arbitrary rotations and zoom levels.
+  - Interactive OCR Token Overlay & Inspector (`OcrInspector`): Reading-order token/line presentation, real-time search, engine provenance indicators (digital vector text vs OCR), and bidirectional click-to-highlight navigation.
+  - Structured Field Extraction Inspector (`StructuredExtractionInspector`): Schema-driven field display with automatic PII / sensitive financial identifier masking (accounts, PAN, tax IDs) and "Locate on Page" coordinate navigation.
+  - Forensic Findings & Anomaly Inspector (`FindingsInspector`): Severity distribution filtering, non-verdict forensic caveat banners, and direct supporting evidence provenance links.
+  - Visual Error Level Analysis (ELA) Heatmap Raster Overlay: Canvas blend integration and dedicated backend artifact retrieval endpoint (`GET /cases/{case_id}/documents/{document_id}/artifacts/{run_id}/{filename}`).
+  - Three-Region Investigation Workspace (`DocumentExaminePage`): Responsive layout combining Page Thumbnail Strip, Canvas Document Viewer, and Multi-tab Inspector with collapsible panels.
+- **Phase 3C (Interactive Evidence Graph Canvas):**
+  - High-performance interactive graph visualization workspace (`EvidenceGraphPage` at `/cases/:caseId/graph`) powered by `@xyflow/react` and `@dagrejs/dagre`.
+  - Hierarchical Directed Layout & Transformers (`frontend/src/components/graph/layout.ts`): Converts backend `GraphNode` and `GraphEdge` payloads into React Flow nodes and edges, laying out connections hierarchically (LR) with Dagre.
+  - Custom Typed Graph Nodes (`EvidenceGraphNode`): 16 specialized node configurations covering all domain categories (`CASE`, `DOCUMENT`, `PERSON`, `ORGANIZATION`, `SUPPLIER`, `BUYER`, `MERCHANT`, `BANK`, `ACCOUNT`, `INVOICE`, `RECEIPT`, `PURCHASE_ORDER`, `BANK_TRANSACTION`, `EVIDENCE`, `FORENSIC_FINDING`, `CONSISTENCY_FINDING`) with automated PII masking for sensitive account identifiers, category badges, and page coordinate provenance.
+  - Directed Evidentiary Edges (`EvidenceGraphEdge`): Canonical predicate labels with distinct evidentiary status stroke styles (`CONFIRMED` electric cyan, `CANDIDATE` amber dashed, `CONTRADICTED` crimson dashed, `UNRESOLVED` slate dotted, `REJECTED` muted strike-through).
+  - Investigation Controls Bar (`GraphControlsBar`): Fast debounced text search with autocomplete drop-down, node type multi-filters, relationship status toggles, smooth fit-view, and Dagre re-layout triggers.
+  - Deep Details Inspector Sidebar (`GraphDetailsInspector`): Multi-panel drawer for selected node display attributes and evidentiary provenance; inspects edge predicates, relationship status, heuristic scores, explanations, and supporting evidence references; provides 1-click cross-workspace navigation to visual document examination (`/cases/:caseId/documents/:documentId/examine`).
+  - Bounded Pathfinding Modal (`PathExplorationPanel`): Interactive path search between arbitrary source and target nodes with depth selectors (1–6 hops), confirmed-only filtering, and canvas path highlight synchronization.
+  - Dynamic Neighborhood Expansion: In-situ 2-hop BFS expansion leveraging backend `GET /cases/{case_id}/graph/nodes/{node_id}/neighbors` without reloading entire case projection.
+- **Phase 3D (Unified Findings & Investigator Review Workbench):**
+  - Dedicated Investigation Route (`FindingsWorkbenchPage` at `/cases/:caseId/findings`): Unified findings review workspace removing placeholder badges and providing integrated case findings triage.
+  - Epistemic Classification Preservation (`EpistemicNoticeBanner`, `Badge`): Contextual legal disclaimer preventing premature conclusions; visual distinctions and expandable guidelines for `OBSERVED_FACT` (cyan), `AUTOMATED_INDICATOR` (amber), `ANALYTICAL_INTERPRETATION` (purple), and `INVESTIGATOR_CONCLUSION` (emerald).
+  - Findings Inventory & Filter Toolbar (`FindingsFilterToolbar`, `FindingsTable`): Multi-facet filtering by epistemic classification, severity (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFORMATIONAL`), review status (`UNREVIEWED`, `CONFIRMED_OBSERVATION`, `DISMISSED_FALSE_POSITIVE`, `MARK_INCONCLUSIVE`, `REQUEST_MORE_EVIDENCE`, `MARK_NEEDS_REVIEW`), and subsystem source; search by title, description, rule, or finding ID.
+  - Deep Findings Inspection (`FindingDetailPanel`): Forensic explanation breakdown, heuristic confidence score notice (clarifying relative algorithmic ranking weight vs. non-probabilistic fraud indicators), known limitations & caveats, and direct deep-links to document examination page coordinates (`/cases/:caseId/documents/:documentId/examine?page=:pageNum`).
+  - Human Review Adjudication Workflow (`FindingReviewModal`): Modal form supporting 5 review actions (`CONFIRM_OBSERVATION`, `DISMISS_FALSE_POSITIVE`, `MARK_INCONCLUSIVE`, `REQUEST_MORE_EVIDENCE`, `MARK_NEEDS_REVIEW`), mandatory rationale textarea, asserted examiner identifier, explicit confirmation acknowledgment, and double-submission protection.
+  - Append-Only Review Ledger: Chronological review history displayed on each finding; backend audit logs (`REVIEW_DECISION_RECORDED`) preserve all review transitions without destructive mutations.
+  - Case Dossier Readiness & Sealing Drawer (`DossierReadinessDrawer`): Real-time review-readiness metrics (total, reviewed, unreviewed, inconclusive, contradictory); new 12-section dossier draft generation (`POST /cases/{case_id}/dossiers/generate`); snapshot finalization (`POST /cases/{case_id}/dossiers/{id}/finalize`) freezing approved dossier state and recording canonical SHA-256 hash; vector PDF and structured JSON downloads.
+- **Phase 3E (End-to-End Investigation Integration & Reliability):**
+  - Complete case lifecycle validation and hardening connecting document ingestion, PDF structural forensics, visual ELA, hybrid OCR, entity resolution, relationship detection, consistency analysis, unified evidence graph, findings workbench, human reviews, and sealed dossier generation.
+  - End-to-end integration test harness (`tests/integration/test_phase_3e_investigation_lifecycle.py`) validating multi-document forensic audit pipelines with zero fabricated data.
+- **Phase 4A (Grounded AI Investigation Assistant):**
+  - Modular Monolith Module `modules/assistant/`: Controlled, evidence-grounded AI assistant operating strictly on authoritative case records.
+  - Grounded Evidence Retrieval (`CaseEvidenceRetriever`): Read-only, bounded multi-subsystem evidence compiler operating strictly within the target `case_id`. Compiles documents, forensic findings, consistency findings, entities, relationships, evidence nodes, and investigator reviews with automatic PII masking. Cross-case access strictly prohibited (HTTP 404).
+  - Multi-Layered Prompt Injection & Untrusted Data Boundary: Document and extracted text treated strictly as untrusted data encapsulated within `<case_evidence>` XML tags. System instructions forbid executing embedded commands, overriding instructions, or producing legal verdicts.
+  - Pluggable LLM Provider Abstraction (`LlmProviderProtocol`): Decoupled provider interface supporting deterministic offline testing via `MockLlmProvider` and external OpenAI/Ollama compatible endpoints via `HttpLlmProvider` with strict timeout and fallback handling.
+  - Strict Epistemic Separation & Citation Verification: Response schema categorizes outputs into Observed Facts, Automated Indicators, Analytical Interpretations, Contradictory Evidence, Unresolved Questions, and Limitations. All citations (`[E-1]`, `[E-2]`) are verified against real retrieved entities and findings; ungrounded IDs are purged automatically, and valid citations receive deep links to document examination and findings triage.
+  - Dedicated Investigator Frontend (`AssistantPage` at `/cases/:caseId/assistant`): Interactive chat interface with 6 question category chips, collapsible epistemic breakdown accordions, clickable citation cards, follow-up query suggestions, and prominent evidentiary boundary notices.
+- **Phase 4B (AI Reliability, Grounding & Adversarial Evaluation):**
+  - Deterministic Claim-Level Grounding Engine (`ClaimGroundingValidator` in `modules/assistant/grounding.py`): Re-evaluates all generated citations against authoritative case context verifying case isolation, subsystem consistency, spatial/page matching, and token-level lexical overlap (>= 25% overlap ratio). Prunes ungrounded citations deterministically without secondary LLM calls.
+  - Contradiction Omission Detection: Calculates omission ratios when retrieved case context contains explicit contradictions (`INCONSISTENT`, `POTENTIAL_ANOMALY`, `CONTRADICTED`) and injects automatic limitation alerts if the generated answer suppresses them.
+  - Repeatable Synthetic Evaluation Harness (`AssistantReliabilityEvaluator` in `modules/assistant/evaluator.py`): Headless benchmark engine evaluating 10 version-controlled scenarios in `tests/fixtures/eval/benchmark_scenarios.py` across 7 quantitative reliability metrics: citation resolution rate, claim support rate, unsupported claim rate, contradiction omission rate, insufficient evidence accuracy, prompt injection resistance rate, and cross-case isolation violations (target: 0.0).
+  - PII Sanitization Pipeline (`sanitization.py`): Systematic masking and token redaction for PANs, Aadhaar, SSNs, EINs, credit card numbers, and raw/spaced/dashed financial account numbers across retrieved documents, OCR snippets, conversation history, and user queries before prompt assembly.
+  - Hardened Provider Resilience & Error Hierarchy: `HttpLlmProvider` guarded with 256KB request and 512KB response payload caps, connection/read timeouts, exponential backoff retries, and typed exception discrimination (`ProviderConnectionError`, `ProviderTimeoutError`, `ProviderRateLimitError`, `ProviderPayloadLimitError`, `ProviderResponseError`).
+  - Frontend Transparency: Distinct provider failure alert banners with retry buttons, insufficient evidence warning notices, grounded citation badges, and epistemic classification accordions.
+- **Phase 4B.1 (Independent Evaluation Integrity & Safety Closure):**
+  - Claim-Level Grounding vs. Relevance Separation: Explicit mathematical separation between citation resolution (record exists & case isolation holds), citation lexical relevance (token overlap heuristic), and semantic claim support. Introduced `ClaimSupportStatus` enum (`SUPPORTED`, `CONTRADICTED`, `UNVERIFIED`) and `ClaimVerificationReport`.
+  - Deterministic Reversal & Semantic Inversion Detection: Deterministic rule-based checks detecting numerical mismatches/discrepancies, payment status reversals (paid vs unpaid/overdue), unauthorized promotion of candidate relationships to confirmed partnerships/subsidiaries, and document attribution flips.
+  - Independent Benchmark Negative Controls: Suite of 7 independent negative controls (`tests/unit/test_assistant_benchmark_negative_controls.py`) verifying that inverted claims, incorrect amounts, and unsupported legal conclusions are caught with zero reliance on synthetic test leniency.
+  - Reasoning Manipulation Defense: Defends against adversarial prompt injection targeting investigative logic (suppressing contradiction findings, upgrading automated indicators to conclusions, promoting candidate relationships, or ignoring incriminating records) across OCR text, context, entity names, and finding descriptions.
+  - PII False-Positive Prevention & Evidence Utility Preservation: Protected regex stashing for legitimate evidence identifiers (invoices, purchase orders, transactions, case refs) and dates, preventing destruction of critical evidentiary codes during account and tax ID masking.
+  - Bounded Streaming Provider Architecture: Hardened `HttpLlmProvider` utilizing chunk-level streaming (`client.stream`) with early `Content-Length` checks and byte accumulation ceilings (512KB) preventing out-of-memory exhaustion, honoring upstream `Retry-After` headers on 429/503, failing fast on non-retryable 4xx errors, and sanitizing credentials from error messages.
+  - Frontend Investigator Transparency: Replaced misleading "Grounded" badge with precise "Citations Linked ({count})" and "Insufficient Evidence" status indicators with explicit investigator guidance notes.
+- **Phase 4C+ (Future Multi-Agent & Orchestration Milestones):** Specialized cross-case analytical graphs, fraud ring detection, and multilingual document intelligence models.
 

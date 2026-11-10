@@ -3,13 +3,17 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
+from document_intelligence.api.csrf import verify_csrf_request
 from document_intelligence.api.error_handlers import (
+    authentication_handler,
     conflict_handler,
     entity_not_found_handler,
+    forbidden_handler,
+    rate_limit_handler,
     request_validation_handler,
     security_handler,
     storage_handler,
@@ -19,8 +23,11 @@ from document_intelligence.api.error_handlers import (
 from document_intelligence.api.routes import api_v1_router, health_router
 from document_intelligence.core.config import settings
 from document_intelligence.core.exceptions import (
+    AuthenticationException,
     ConflictException,
     EntityNotFoundException,
+    ForbiddenException,
+    RateLimitException,
     SecurityException,
     StorageException,
     ValidationException,
@@ -79,7 +86,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="EVIDEXA API",
         version=settings.app_version,
-        description="EVIDEXA — Intelligent document forensics and evidence analysis, powered by AI. Official API.",
+        description="EVIDEXA - Intelligent document forensics and evidence analysis, powered by AI. Official API.",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -91,11 +98,22 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
     )
 
+    # CSRF Protection Middleware for ambient cookie authentication
+    @app.middleware("http")
+    async def csrf_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        csrf_error = verify_csrf_request(request)
+        if csrf_error:
+            return csrf_error
+        return await call_next(request)
+
     # Register Exception Handlers
+    app.add_exception_handler(AuthenticationException, authentication_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(ForbiddenException, forbidden_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RateLimitException, rate_limit_handler)  # type: ignore[arg-type]
     app.add_exception_handler(EntityNotFoundException, entity_not_found_handler)  # type: ignore[arg-type]
     app.add_exception_handler(ConflictException, conflict_handler)  # type: ignore[arg-type]
     app.add_exception_handler(ValidationException, validation_handler)  # type: ignore[arg-type]

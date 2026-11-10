@@ -46,6 +46,9 @@ All error responses strictly follow a uniform JSON structure inspired by RFC 780
 | `GET` | `/api/v1/cases/{case_id}` | Retrieve specific case details |
 | `POST` | `/api/v1/cases/{case_id}/documents` | Safely upload and register an original document |
 | `GET` | `/api/v1/cases/{case_id}/documents` | List documents registered in a case |
+| `GET` | `/api/v1/cases/{case_id}/documents/{document_id}` | Retrieve detailed metadata for a registered document |
+| `GET` | `/api/v1/cases/{case_id}/documents/{document_id}/download` | Download or stream original verified evidence file |
+| `GET` | `/api/v1/cases/{case_id}/documents/{document_id}/artifacts/{run_id}/{filename}` | Stream or download derived forensic artifact |
 | `GET` | `/api/v1/cases/{case_id}/findings` | Retrieve forensic findings for a case |
 | `GET` | `/api/v1/cases/{case_id}/audit-events` | Retrieve immutable audit ledger events |
 | `GET` | `/api/v1/cases/{case_id}/audit-events/verify` | Verify cryptographic hash chain integrity |
@@ -56,6 +59,15 @@ All error responses strictly follow a uniform JSON structure inspired by RFC 780
 | `GET` | `/api/v1/cases/{case_id}/documents/{document_id}/extraction` | Get latest structured extraction result |
 | `GET` | `/api/v1/cases/{case_id}/documents/{document_id}/extraction/schemas` | List registered extraction schemas |
 | `GET` | `/api/v1/cases/{case_id}/documents/{document_id}/extraction/schemas/{schema_id}` | Get schema definition and field details |
+| `POST` | `/api/v1/cases/{case_id}/consistency/analyze` | Trigger cross-document consistency analysis |
+| `GET` | `/api/v1/cases/{case_id}/consistency/runs` | List consistency analysis runs for a case |
+| `GET` | `/api/v1/cases/{case_id}/consistency/runs/{run_id}` | Retrieve specific consistency run metadata |
+| `GET` | `/api/v1/cases/{case_id}/consistency/findings` | List cross-document consistency findings with filters |
+| `GET` | `/api/v1/cases/{case_id}/consistency/findings/{finding_id}` | Retrieve specific finding details, fields, and locations |
+| `POST` | `/api/v1/cases/{case_id}/consistency/findings/{finding_id}/reviews` | Record human review decision on a finding |
+| `GET` | `/api/v1/cases/{case_id}/consistency/findings/{finding_id}/reviews` | List chronological human review audit history |
+| `POST` | `/api/v1/cases/{case_id}/assistant/query` | Submit evidence-grounded question to AI assistant |
+| `GET` | `/api/v1/cases/{case_id}/assistant/context-summary` | Retrieve available evidentiary counts for assistant |
 
 ---
 
@@ -146,7 +158,15 @@ All error responses strictly follow a uniform JSON structure inspired by RFC 780
 
 ---
 
-### 3.4 List Findings
+### 3.4 Retrieve Forensic Artifact
+- **Endpoint:** `GET /api/v1/cases/{case_id}/documents/{document_id}/artifacts/{run_id}/{filename}`
+- **Security & Scope:** Validates case and document ownership. Sanitizes filename against directory traversal (`sanitize_filename`). Never exposes absolute host filesystem paths.
+- **Media Types:** `image/png`, `image/jpeg`, `application/json`, or `application/octet-stream`.
+- **Response (`200 OK`):** Stream of authentic derived forensic artifact bytes (e.g. ELA heatmap raster or extraction output).
+
+---
+
+### 3.5 List Findings
 - **Endpoint:** `GET /api/v1/cases/{case_id}/findings`
 - **Response (`200 OK`):**
   ```json
@@ -331,9 +351,451 @@ All error responses strictly follow a uniform JSON structure inspired by RFC 780
 - **List Relationship Reviews:** `GET /api/v1/cases/{case_id}/relationships/{relationship_id}/reviews`
   - Status: `200 OK`
   - Returns array of `RelationshipReviewRecord` objects ordered by review date.
-  - Returns updated `DetectedRelationship` and appends `RELATIONSHIP_REVIEWED` to the hash-chained audit ledger.
-- **List Relationship Reviews:** `GET /api/v1/cases/{case_id}/relationships/{relationship_id}/reviews`
-  - Status: `200 OK`
-  - Returns array of `RelationshipReviewRecord` objects ordered by review date.
+
+---
+
+## 10. Cross-Document Consistency Analysis Engine
+
+Deterministic cross-document consistency checks evaluate whether documents belonging to the same case contradict each other, exhibit discrepancies, or demonstrate coherent commercial alignment.
+
+### 10.1 Trigger Consistency Analysis
+- **Endpoint:** `POST /api/v1/cases/{case_id}/consistency/analyze`
+- **Status:** `201 Created`
+- **Request Body (Optional):**
+  ```json
+  {
+    "document_ids": ["doc-uuid-1", "doc-uuid-2"],
+    "rule_ids": ["invoice_receipt_total_consistency", "po_invoice_financials_consistency"],
+    "monetary_tolerance": "0.00",
+    "parameters": {
+      "transactions": []
+    }
+  }
+  ```
+- **Response Model (`ConsistencyAnalysisResult`):**
+  ```json
+  {
+    "case_id": "8a2b3c4d-...",
+    "analysis_run_id": "run-uuid-...",
+    "status": "SUCCEEDED",
+    "findings": [
+      {
+        "id": "finding-uuid-...",
+        "case_id": "8a2b3c4d-...",
+        "analysis_run_id": "run-uuid-...",
+        "rule_id": "invoice_receipt_total_consistency",
+        "rule_version": "1.0.0",
+        "category": "FINANCIAL_VALIDATION",
+        "title": "Invoice vs Receipt Total: INCONSISTENT",
+        "explanation": "Monetary discrepancy detected: Invoice 'inv.pdf' has 85000.00 INR whereas Receipt 'rcpt.pdf' has 95000.00 INR (difference of 10000.00 INR).",
+        "severity": "HIGH",
+        "outcome": "INCONSISTENT",
+        "score": 1.0,
+        "score_semantics": "rule_deterministic_confidence",
+        "affected_document_ids": ["doc-1", "doc-2"],
+        "compared_fields": ["total_amount", "currency"],
+        "original_values": {
+          "doc-1:total_amount": "85,000.00",
+          "doc-2:total_amount": "95,000.00"
+        },
+        "normalized_values": {
+          "doc-1:total_amount": "85000.00",
+          "doc-2:total_amount": "95000.00"
+        },
+        "locations": [
+          {
+            "document_id": "doc-1",
+            "field_key": "total_amount",
+            "page_number": 1,
+            "bounding_box": {"x": 0.65, "y": 0.82, "width": 0.25, "height": 0.04},
+            "evidence_node_id": "ev-doc-1-total_amount"
+          }
+        ],
+        "detection_method": "MONETARY_RECONCILIATION_CHECK",
+        "rule_parameters": {"monetary_tolerance": "0.00"},
+        "limitations": [
+          "Total amount matching does not prove settlement without verified payment ledger confirmation.",
+          "Discrepancies may reflect partial payments, surcharges, or discounts."
+        ],
+        "status": "DETECTED",
+        "review_status": "UNREVIEWED",
+        "is_human_reviewed": false
+      }
+    ],
+    "total_findings": 1,
+    "outcomes_summary": {"INCONSISTENT": 1},
+    "rules_applied": ["invoice_receipt_total_consistency"],
+    "duration_ms": 14.5,
+    "storage_artifact_key": "cases/case-id/consistency/run-id/consistency_analysis_run-id.json",
+    "storage_artifact_sha256": "4a7b..."
+  }
+  ```
+
+### 10.2 List Consistency Analysis Runs
+- **Endpoint:** `GET /api/v1/cases/{case_id}/consistency/runs`
+- **Status:** `200 OK`
+- **Response:** Array of `ProcessingRun` objects.
+
+### 10.3 Retrieve Consistency Run Details
+- **Endpoint:** `GET /api/v1/cases/{case_id}/consistency/runs/{run_id}`
+- **Status:** `200 OK`
+- **Response:** Single `ProcessingRun` object.
+
+### 10.4 List Consistency Findings
+- **Endpoint:** `GET /api/v1/cases/{case_id}/consistency/findings`
+- **Query Parameters:**
+  - `run_id`: Filter by analysis run UUID.
+  - `rule_id`: Filter by rule machine identifier.
+  - `outcome`: Filter by outcome (`CONSISTENT`, `INCONSISTENT`, `POTENTIAL_ANOMALY`, `INSUFFICIENT_EVIDENCE`, `NOT_APPLICABLE`).
+  - `status`: Filter by finding status (`DETECTED`, `CONFIRMED_OBSERVATION`, `DISMISSED`, `RESOLVED`, `NEEDS_REVIEW`).
+  - `document_id`: Filter by affected document UUID.
+  - `limit`: Integer (default: 50, max: 500).
+  - `offset`: Integer (default: 0).
+- **Status:** `200 OK`
+- **Response:** `{"findings": [...], "total": N, "limit": 50, "offset": 0}`.
+
+### 10.5 Retrieve Individual Consistency Finding
+- **Endpoint:** `GET /api/v1/cases/{case_id}/consistency/findings/{finding_id}`
+- **Status:** `200 OK`
+- **Response:** Full `ConsistencyFinding` object with complete evidence locations and review history.
+
+### 10.6 Submit Human Review Decision
+- **Endpoint:** `POST /api/v1/cases/{case_id}/consistency/findings/{finding_id}/reviews`
+- **Status:** `201 Created`
+- **Request Body:**
+  ```json
+  {
+    "decision": "CONFIRM_INCONSISTENCY",
+    "reviewer_id": "investigator-alice",
+    "reason": "Confirmed physical invoice shows distinct amount from point-of-sale receipt."
+  }
+  ```
+- **Allowed Actions:**
+  - `CONFIRM_INCONSISTENCY` -> Transitions finding status to `CONFIRMED_OBSERVATION`.
+  - `DISMISS` -> Transitions finding status to `DISMISSED`.
+  - `MARK_INSUFFICIENT_EVIDENCE` -> Transitions finding status to `RESOLVED`.
+  - `REQUEST_MORE_EVIDENCE` -> Transitions finding status to `NEEDS_REVIEW`.
+- **Response:** Updated `ConsistencyFinding` object with updated `status`, `review_status`, and `review_history`.
+
+### 10.7 Retrieve Finding Review History
+- **Endpoint:** `GET /api/v1/cases/{case_id}/consistency/findings/{finding_id}/reviews`
+- **Status:** `200 OK`
+- **Response:** Chronological array of `ConsistencyReview` records preserving asserted reviewer IDs, timestamps, and justifications.
+
+---
+
+## 11. Unified Evidence Graph Endpoints
+
+The Evidence Graph query layer projects authoritative relational records (cases, documents, evidence nodes, forensic findings, consistency findings, relationships, and entity candidate matches) as a single connected in-memory model.
+
+### 11.1 Retrieve Case Evidence Graph
+- **Endpoint:** `GET /api/v1/cases/{case_id}/graph`
+- **Query Parameters:**
+  - `node_types`: Array of strings (e.g. `DOCUMENT`, `EVIDENCE`, `FORENSIC_FINDING`, `CONSISTENCY_FINDING`, `ORGANIZATION`, `INVOICE`).
+  - `relationship_types`: Array of strings (e.g. `ISSUED`, `INVOICED`, `HAS_EVIDENCE`, `SUPPORTED_BY`, `REFERENCES_PURCHASE_ORDER`).
+  - `statuses`: Array of strings (`CONFIRMED`, `CANDIDATE`, `CONTRADICTED`, `UNRESOLVED`, `REJECTED`).
+  - `document_ids`: Array of document UUIDs.
+  - `limit`: Integer (default: 500, max: 2000).
+  - `offset`: Integer (default: 0).
+- **Status:** `200 OK`
+- **Response:**
+  ```json
+  {
+    "case_id": "case-uuid",
+    "nodes": [
+      {
+        "id": "node-uuid",
+        "case_id": "case-uuid",
+        "node_type": "DOCUMENT",
+        "source_entity_type": "Document",
+        "source_entity_id": "doc-uuid",
+        "label": "invoice_101.pdf",
+        "display_attributes": {
+          "filename": "invoice_101.pdf",
+          "document_type": "INVOICE",
+          "sha256": "4a7b..."
+        },
+        "provenance": {"storage_key": "cases/case-uuid/invoice_101.pdf"},
+        "created_at": "2026-11-09T12:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-uuid",
+        "case_id": "case-uuid",
+        "source_node_id": "node-uuid-a",
+        "target_node_id": "node-uuid-b",
+        "predicate": "REFERENCES_PURCHASE_ORDER",
+        "status": "CONFIRMED",
+        "status_determination_method": "EVIDENTIARY_RULE",
+        "score": 0.98,
+        "supporting_evidence_ids": ["ev-1"],
+        "contradicting_evidence_ids": [],
+        "source_relationship_id": "rel-uuid",
+        "explanation": "Invoice field po_number explicitly cites PO-50",
+        "metadata": {}
+      }
+    ],
+    "total_nodes": 12,
+    "total_edges": 15,
+    "truncated": false,
+    "query_metadata": {
+      "limit": 500,
+      "offset": 0
+    },
+    "projection_version": "1.0.0"
+  }
+  ```
+
+### 11.2 Retrieve Graph Node Details & Degree
+- **Endpoint:** `GET /api/v1/cases/{case_id}/graph/nodes/{node_id}`
+- **Status:** `200 OK`
+- **Response:**
+  ```json
+  {
+    "node": {
+      "id": "node-uuid",
+      "case_id": "case-uuid",
+      "node_type": "DOCUMENT",
+      "source_entity_type": "Document",
+      "source_entity_id": "doc-uuid",
+      "label": "invoice_101.pdf",
+      "display_attributes": {},
+      "provenance": {},
+      "created_at": "2026-11-09T12:00:00Z"
+    },
+    "outgoing_edges": [...],
+    "incoming_edges": [...],
+    "degree": 4
+  }
+  ```
+
+### 11.3 Retrieve Bounded k-hop Neighborhood
+- **Endpoint:** `GET /api/v1/cases/{case_id}/graph/nodes/{node_id}/neighbors`
+- **Query Parameters:**
+  - `max_hops`: Integer (default: 2, min: 1, max: 5).
+  - `limit`: Integer (default: 200, max: 1000).
+  - `relationship_types`: Array of strings.
+  - `statuses`: Array of strings.
+- **Status:** `200 OK`
+- **Response:**
+  ```json
+  {
+    "case_id": "case-uuid",
+    "center_node_id": "node-uuid",
+    "hops": 2,
+    "nodes": [...],
+    "edges": [...],
+    "total_nodes": 8,
+    "total_edges": 9,
+    "truncated": false
+  }
+  ```
+
+### 11.4 Search Directed Evidentiary Paths
+- **Endpoint:** `GET /api/v1/cases/{case_id}/graph/paths`
+- **Query Parameters:**
+  - `source_node_id`: Starting node UUID (required).
+  - `target_node_id`: Target destination node UUID (required).
+  - `max_depth`: Integer (default: 4, min: 1, max: 6).
+  - `max_paths`: Integer (default: 10, min: 1, max: 50).
+  - `confirmed_only`: Boolean (default: `false`). When `true`, restricts path traversal to edges with status `CONFIRMED`.
+  - `relationship_types`: Array of strings.
+- **Status:** `200 OK`
+- **Response:**
+  ```json
+  {
+    "case_id": "case-uuid",
+    "source_node_id": "node-uuid-src",
+    "target_node_id": "node-uuid-tgt",
+    "max_depth": 4,
+    "paths": [
+      {
+        "nodes": [...],
+        "edges": [...],
+        "length": 2,
+        "is_confirmed_only": true
+      }
+    ],
+    "total_paths_found": 1,
+    "truncated": false
+  }
+  ```
+
+---
+
+## 12. Findings Aggregation & Evidence Dossier
+
+### 12.1 Get Aggregated Case Findings
+- **Endpoint:** `GET /api/v1/cases/{case_id}/findings/aggregated`
+- **Status:** `200 OK`
+- **Response:** Array of `AggregatedFinding` objects combining forensic anomalies, consistency findings, relationship anomalies, and candidate conflicts with review history and epistemic classifications.
+
+### 12.2 Record Investigator Review on Aggregated Finding
+- **Endpoint:** `POST /api/v1/cases/{case_id}/findings/aggregated/{finding_id}/reviews`
+- **Status:** `201 Created`
+- **Request Body:**
+  ```json
+  {
+    "reviewer_id": "examiner-01",
+    "action": "CONFIRM_OBSERVATION",
+    "rationale": "Verified trailer xref tampering manually."
+  }
+  ```
+- **Response:** Created `AggregatedFindingReview` object.
+
+### 12.3 List Review History for an Aggregated Finding
+- **Endpoint:** `GET /api/v1/cases/{case_id}/findings/aggregated/{finding_id}/reviews`
+- **Status:** `200 OK`
+- **Response:** Array of `AggregatedFindingReview` objects in chronological order.
+
+### 12.4 Generate Investigation Evidence Dossier Draft
+- **Endpoint:** `POST /api/v1/cases/{case_id}/dossiers/generate`
+- **Status:** `201 Created`
+- **Request Body:**
+  ```json
+  {
+    "created_by": "lead-investigator",
+    "scope_and_purpose": "Forensic audit and cross-document reconciliation"
+  }
+  ```
+- **Response:** `InvestigationDossier` object with all 12 analytical sections, document summaries, and preliminary content hash.
+
+### 12.5 List Case Dossiers
+- **Endpoint:** `GET /api/v1/cases/{case_id}/dossiers`
+- **Status:** `200 OK`
+- **Response:** Array of `InvestigationDossier` objects.
+
+### 12.6 Get Dossier Details
+- **Endpoint:** `GET /api/v1/cases/{case_id}/dossiers/{dossier_id}`
+- **Status:** `200 OK`
+- **Response:** Full `InvestigationDossier` object including all 12 chapters, review decisions, and metadata.
+
+### 12.7 Finalize Investigation Dossier
+- **Endpoint:** `POST /api/v1/cases/{case_id}/dossiers/{dossier_id}/finalize`
+- **Status:** `200 OK`
+- **Request Body:**
+  ```json
+  {
+    "user_id": "supervisor-01"
+  }
+  ```
+- **Response:** Finalized `InvestigationDossier` with status `APPROVED` and canonical SHA-256 `content_hash`.
+
+### 12.8 Export Dossier Artifact (PDF or JSON)
+- **Endpoint:** `GET /api/v1/cases/{case_id}/dossiers/{dossier_id}/export`
+- **Query Parameters:**
+  - `format`: `pdf` or `json` (default: `pdf`).
+  - `user_id`: Investigator identity requesting export.
+- **Status:** `200 OK`
+- **Response:** File attachment stream with `application/pdf` or `application/json` content-type, EVIDEXA branding, and legal disclaimers.
+
+---
+
+## 13. Grounded AI Investigation Assistant
+
+### 13.1 Query Grounded Investigation Assistant
+- **Endpoint:** `POST /api/v1/cases/{case_id}/assistant/query`
+- **Description:** Submits an investigator question and receives a bounded, evidence-grounded response with traceable citations.
+- **Request Body (`AssistantQueryRequest`):**
+  ```json
+  {
+    "question": "Provide a case summary of all uploaded documents.",
+    "conversation_context": [
+      {"role": "user", "content": "What documents exist?"},
+      {"role": "assistant", "content": "Document invoice_101.pdf has been uploaded."}
+    ],
+    "category_hint": "INVESTIGATION_SUMMARY",
+    "reviewer_id": "senior-examiner"
+  }
+  ```
+- **Question Categories:**
+  - `EVIDENCE_EXPLANATION`
+  - `CROSS_DOCUMENT_COMPARISON`
+  - `ENTITY_INVESTIGATION`
+  - `CONTRADICTION_ANALYSIS`
+  - `INVESTIGATION_SUMMARY`
+  - `FOLLOW_UP_SUGGESTIONS`
+- **Status:** `200 OK`
+- **Response (`AssistantQueryResponse`):**
+  ```json
+  {
+    "case_id": "case-uuid",
+    "question_category": "INVESTIGATION_SUMMARY",
+    "answer_text": "Based on authoritative case records, 2 documents have been analyzed.",
+    "citations": [
+      {
+        "citation_id": "[E-1]",
+        "case_id": "case-uuid",
+        "document_id": "doc-uuid",
+        "document_title": "invoice_101.pdf",
+        "evidence_id": null,
+        "finding_id": null,
+        "entity_id": null,
+        "relationship_id": null,
+        "page_number": 1,
+        "bounding_box": null,
+        "source_subsystem": "inventory",
+        "relevant_text": "Primary invoice submitted for verification.",
+        "target_route": "/cases/case-uuid/documents/doc-uuid/examine"
+      }
+    ],
+    "observed_facts": [
+      "Document invoice_101.pdf registered with SHA-256 e3b0c44..."
+    ],
+    "automated_indicators": [
+      "PDF incremental update detected on trailer dictionary."
+    ],
+    "analytical_interpretations": [
+      "Supplier name matches candidate entity."
+    ],
+    "contradictory_evidence": [],
+    "unresolved_questions": [
+      "Original signed paper contract remains unverified."
+    ],
+    "limitations": [
+      "OCR ground truth unavailable for redacted regions."
+    ],
+    "follow_up_suggestions": [
+      "Inspect trailer dictionary update timestamp in document examine workspace."
+    ],
+    "has_sufficient_evidence": true,
+    "ai_notice": "AI-generated response grounded strictly in EVIDEXA case records.",
+    "retrieval_stats": {
+      "documents": 2,
+      "findings": 1,
+      "entities": 2,
+      "total_items": 5
+    },
+    "model_name": "evidexa-mock-llm-v1"
+  }
+  ```
+
+### 13.2 Retrieve Assistant Context Summary
+- **Endpoint:** `GET /api/v1/cases/{case_id}/assistant/context-summary`
+- **Description:** Retrieves counts and available evidentiary sources for active case initialization.
+- **Status:** `200 OK`
+- **Response:**
+  ```json
+  {
+    "case_id": "case-uuid",
+    "case_title": "Operation Apex Forensics",
+    "case_status": "ACTIVE",
+    "counts": {
+      "documents": 2,
+      "forensic_findings": 3,
+      "consistency_findings": 1,
+      "entities": 4,
+      "relationships": 2,
+      "reviews": 1,
+      "total_items": 13
+    },
+    "document_titles": ["invoice_101.pdf", "receipt_202.pdf"],
+    "unavailable_subsystems": []
+  }
+  ```
+
+
+
 
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "evidexa"
 version = "0.1.0"
-description = "EVIDEXA — Intelligent document forensics and evidence analysis, powered by AI."
+description = "EVIDEXA - Intelligent document forensics and evidence analysis, powered by AI."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
@@ -26,6 +26,8 @@ dependencies = [
     "rapidocr-onnxruntime==1.4.4",
     "onnxruntime==1.31.1",
     "pdf-forensics-kit @ git+https://github.com/overjoyde/pdf-forensics-kit.git@d997e87cacf02812d647c873ca16fe8c5b055938",
+    "argon2-cffi>=25.1.0",
+    "pyjwt>=2.15.1",
 ]
 
 [project.optional-dependencies]

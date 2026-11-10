@@ -7,8 +7,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
 
-from document_intelligence.api.dependencies import get_entity_resolution_service
+from document_intelligence.api.dependencies import (
+    get_current_user,
+    get_entity_resolution_service,
+    require_case_access,
+)
 from document_intelligence.domain.enums import EntityReviewAction
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.entity_resolution import (
     EntityCandidateMatch,
     EntityMention,
@@ -17,6 +22,7 @@ from document_intelligence.domain.models.entity_resolution import (
     HumanMatchReview,
     ResolvedEntity,
 )
+from document_intelligence.infrastructure.persistence.models import UserModel
 from document_intelligence.modules.entity_resolution.service import (
     EntityResolutionService,
 )
@@ -51,10 +57,10 @@ class ReviewMatchRequest(BaseModel):
         max_length=1000,
         description="Justification for human review decision.",
     )
-    reviewer_id: str = Field(
-        min_length=1,
+    reviewer_id: str | None = Field(
+        default=None,
         max_length=100,
-        description="Asserted reviewer or investigator identifier (unauthenticated in development mode).",
+        description="Asserted reviewer ID (superseded by authenticated identity).",
     )
 
 
@@ -86,6 +92,7 @@ class PaginatedEntitiesResponse(BaseModel):
 def trigger_entity_resolution(
     case_id: str,
     payload: TriggerEntityResolutionRequest | None = None,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> EntityResolutionResult:
     options = payload.options if payload else {}
@@ -105,6 +112,7 @@ def trigger_entity_resolution(
 )
 def list_resolution_runs(
     case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> list[EntityResolutionRunSummary]:
     return service.list_resolution_runs(case_id=case_id)
@@ -119,6 +127,7 @@ def list_resolution_runs(
 def get_run_result(
     case_id: str,
     run_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> EntityResolutionResult:
     return service.get_run_result(case_id=case_id, run_id=run_id)
@@ -132,6 +141,7 @@ def get_run_result(
 )
 def get_latest_result(
     case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> EntityResolutionResult:
     return service.get_latest_run_result(case_id=case_id)
@@ -150,6 +160,7 @@ def list_resolved_entities(
     ),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> PaginatedEntitiesResponse:
     if run_id:
@@ -176,6 +187,7 @@ def list_candidate_matches(
     review_status: str | None = Query(None, description="Filter by review status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> PaginatedMatchesResponse:
     items, total = service.list_matches(
@@ -199,6 +211,7 @@ def list_candidate_matches(
 def get_candidate_match(
     case_id: str,
     match_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> EntityCandidateMatch:
     return service.get_match(case_id=case_id, match_id=match_id)
@@ -214,14 +227,21 @@ def review_candidate_match(
     case_id: str,
     match_id: str,
     payload: ReviewMatchRequest,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.REVIEWER, is_mutation=True)),
+    current_user: UserModel = Depends(get_current_user),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> EntityCandidateMatch:
+    actor_id = (
+        payload.reviewer_id
+        if (current_user.id == "usr-system-admin-001" and payload.reviewer_id)
+        else current_user.id
+    )
     return service.submit_match_review(
         case_id=case_id,
         match_id=match_id,
         decision=payload.decision.value,
         reason=payload.reason,
-        reviewer_id=payload.reviewer_id,
+        reviewer_id=actor_id,
     )
 
 
@@ -234,6 +254,7 @@ def review_candidate_match(
 def list_match_reviews(
     case_id: str,
     match_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: EntityResolutionService = Depends(get_entity_resolution_service),
 ) -> list[HumanMatchReview]:
     return service.list_match_reviews(case_id=case_id, match_id=match_id)

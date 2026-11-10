@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -16,7 +17,143 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from document_intelligence.domain.identifiers import utc_now
 from document_intelligence.infrastructure.persistence.database import Base
+
+
+class OrganizationModel(Base):
+    """Organizations table for multi-tenant isolation."""
+
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    # Relationships
+    cases: Mapped[list["CaseModel"]] = relationship("CaseModel", back_populates="organization")
+    memberships: Mapped[list["OrganizationMembershipModel"]] = relationship(
+        "OrganizationMembershipModel", back_populates="organization", cascade="all, delete-orphan"
+    )
+
+
+class UserModel(Base):
+    """User accounts table."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    system_role: Mapped[str] = mapped_column(String(32), default="USER", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+    # Relationships
+    case_memberships: Mapped[list["CaseMembershipModel"]] = relationship(
+        "CaseMembershipModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    refresh_tokens: Mapped[list["RefreshTokenModel"]] = relationship(
+        "RefreshTokenModel", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class OrganizationMembershipModel(Base):
+    """Organization membership table."""
+
+    __tablename__ = "organization_memberships"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(32), default="MEMBER", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("organization_id", "user_id", name="uq_org_member"),)
+
+    organization: Mapped["OrganizationModel"] = relationship(
+        "OrganizationModel", back_populates="memberships"
+    )
+
+
+class CaseMembershipModel(Base):
+    """Case-scoped RBAC membership table."""
+
+    __tablename__ = "case_memberships"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(32), default="VIEWER", nullable=False, index=True)
+    assigned_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("case_id", "user_id", name="uq_case_member"),)
+
+    case: Mapped["CaseModel"] = relationship("CaseModel", back_populates="memberships")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="case_memberships")
+
+
+class RefreshTokenModel(Base):
+    """Cryptographically hashed refresh tokens with single-use rotation."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    replaced_by_token_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="refresh_tokens")
+
+
+class AuthenticationEventModel(Base):
+    """Authentication and security audit event log."""
+
+    __tablename__ = "authentication_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    username_attempted: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
 
 
 class CaseModel(Base):
@@ -25,16 +162,29 @@ class CaseModel(Base):
     __tablename__ = "cases"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     case_reference: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     case_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
 
     # Relationships
+    organization: Mapped["OrganizationModel | None"] = relationship(
+        "OrganizationModel", back_populates="cases"
+    )
+    memberships: Mapped[list["CaseMembershipModel"]] = relationship(
+        "CaseMembershipModel", back_populates="case", cascade="all, delete-orphan"
+    )
     documents: Mapped[list["DocumentModel"]] = relationship(
         "DocumentModel", back_populates="case", cascade="all, delete-orphan"
     )
@@ -177,19 +327,45 @@ class InvestigationDossierModel(Base):
     case_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    title: Mapped[str] = mapped_column(
+        String(255), default="Investigation Evidence Dossier", nullable=False
+    )
+    scope_and_purpose: Mapped[str] = mapped_column(Text, default="", nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     executive_summary: Mapped[str] = mapped_column(Text, nullable=False)
     document_summaries: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     finding_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     evidence_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
-    review_decisions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    review_decisions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     limitations: Mapped[list[str]] = mapped_column(JSON, default=list)
+    unresolved_questions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    sections: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dossier_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_by: Mapped[str] = mapped_column(String(100), nullable=False)
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (UniqueConstraint("case_id", "version", name="uq_dossier_case_version"),)
+
+
+class AggregatedFindingReviewModel(Base):
+    """Investigator review decisions table for unified cross-domain findings."""
+
+    __tablename__ = "aggregated_finding_reviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    finding_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    reviewer_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    comment: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    previous_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    new_status: Mapped[str] = mapped_column(String(50), nullable=False)
 
 
 class ReviewDecisionModel(Base):
@@ -211,6 +387,80 @@ class ReviewDecisionModel(Base):
     decision: Mapped[str] = mapped_column(String(32), nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    previous_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    new_status: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class ConsistencyFindingModel(Base):
+    """Consistency findings table for cross-document deterministic comparisons."""
+
+    __tablename__ = "consistency_findings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    analysis_run_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    rule_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    rule_version: Mapped[str] = mapped_column(String(20), nullable=False, default="1.0.0")
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    score_semantics: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="rule_deterministic_confidence"
+    )
+    affected_document_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    compared_fields: Mapped[list[str]] = mapped_column(JSON, default=list)
+    original_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    normalized_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    supporting_evidence_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    contradicting_evidence_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    locations_payload: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    detection_method: Mapped[str] = mapped_column(String(100), nullable=False)
+    rule_parameters: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    limitations: Mapped[list[str]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="DETECTED", index=True)
+    review_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="UNREVIEWED", index=True
+    )
+    is_human_reviewed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    comparisons_payload: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_consistency_findings_case_outcome", "case_id", "outcome"),
+        Index("ix_consistency_findings_case_status", "case_id", "status"),
+        Index("ix_consistency_findings_case_rule", "case_id", "rule_id"),
+    )
+
+
+class ConsistencyReviewModel(Base):
+    """Human review decision audit trail for consistency findings."""
+
+    __tablename__ = "consistency_reviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    case_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    finding_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("consistency_findings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    reviewer_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     previous_status: Mapped[str] = mapped_column(String(32), nullable=False)
     new_status: Mapped[str] = mapped_column(String(32), nullable=False)
 
@@ -344,8 +594,12 @@ class DetectedRelationshipModel(Base):
     detection_version: Mapped[str] = mapped_column(String(50), nullable=False)
     status_rationale: Mapped[str] = mapped_column(Text, nullable=False)
     evidence_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
 
     __table_args__ = (
         Index("ix_relationships_case_status", "case_id", "status"),
@@ -376,3 +630,87 @@ class RelationshipReviewModel(Base):
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     previous_status: Mapped[str] = mapped_column(String(32), nullable=False)
     new_status: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class CrossCaseScopeModel(Base):
+    """Explicit cross-case investigation scope bounding case participation."""
+
+    __tablename__ = "cross_case_scopes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    case_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    scope_metadata: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
+
+
+class CrossCaseCandidateMatchModel(Base):
+    """Persisted cross-case candidate correlation match between entity mentions."""
+
+    __tablename__ = "cross_case_candidate_matches"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    scope_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("cross_case_scopes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_case_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    candidate_case_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    target_value_display: Mapped[str] = mapped_column(String(500), nullable=False)
+    candidate_value_display: Mapped[str] = mapped_column(String(500), nullable=False)
+    raw_target_value_masked: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    raw_candidate_value_masked: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    matching_method: Mapped[str] = mapped_column(String(50), nullable=False)
+    match_classification: Mapped[str] = mapped_column(String(50), nullable=False)
+    match_score: Mapped[float] = mapped_column(Float, nullable=False)
+    decision_status: Mapped[str] = mapped_column(
+        String(50), default="PENDING_REVIEW", nullable=False
+    )
+    evidence_payload: Mapped[dict[str, Any]] = mapped_column("evidence", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_cross_case_matches_scope_status", "scope_id", "decision_status"),
+        Index("ix_cross_case_matches_cases", "target_case_id", "candidate_case_id"),
+    )
+
+
+class CrossCaseCandidateReviewModel(Base):
+    """Audit log of human review decisions on cross-case correlation candidates."""
+
+    __tablename__ = "cross_case_candidate_reviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    match_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("cross_case_candidate_matches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scope_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String(50), nullable=False)
+    reviewer_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    reviewer_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    previous_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    new_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )

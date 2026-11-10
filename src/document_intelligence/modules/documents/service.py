@@ -168,3 +168,13 @@ class DocumentService:
         if not case:
             raise EntityNotFoundException("Case", case_id)
         return self.document_repo.list_by_case(case_id, skip=skip, limit=limit)
+
+    def get_document(self, case_id: str, document_id: str) -> Document:
+        """Retrieve a specific document within a case ensuring case isolation."""
+        case = self.case_repo.get_by_id(case_id)
+        if not case:
+            raise EntityNotFoundException("Case", case_id)
+        doc = self.document_repo.get_by_id(document_id)
+        if not doc or doc.case_id != case_id:
+            raise EntityNotFoundException("Document", document_id)
+        return doc

@@ -97,7 +97,7 @@ flowchart LR
 4. **Resolve Entities & Detect Relationships:** The cross-document engine deterministically matches entities across files and detects directed relationships according to Ontology V2.
 5. **Inspect the Evidence Graph:** The investigator explores connected evidence, viewing visual bounding boxes, OCR tokens, and supporting vs. contradicting signals.
 6. **Record Human Review Decisions:** The investigator confirms or rejects candidates with recorded justifications, automatically updating the cryptographic audit ledger.
-7. **Export Investigation Dossier:** The platform compiles a comprehensive, court-ready investigation dossier documenting verified facts, visual forensic exhibits, and complete chain-of-custody provenance.
+7. **Export Investigation Dossier:** The platform compiles a comprehensive, structured investigation dossier documenting verified facts, visual forensic exhibits, and complete chain-of-custody provenance.
 
 ---
 

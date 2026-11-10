@@ -18,6 +18,7 @@ class CaseRepository:
         """Persist or update a Case aggregate."""
         existing = self.db.get(CaseModel, case.id)
         if existing:
+            existing.organization_id = case.organization_id
             existing.case_reference = case.case_reference
             existing.title = case.title
             existing.description = case.description
@@ -28,6 +29,7 @@ class CaseRepository:
         else:
             model = CaseModel(
                 id=case.id,
+                organization_id=case.organization_id,
                 case_reference=case.case_reference,
                 title=case.title,
                 description=case.description,
@@ -61,15 +63,20 @@ class CaseRepository:
         skip: int = 0,
         limit: int = 50,
         status: CaseStatus | None = None,
+        accessible_case_ids: list[str] | None = None,
     ) -> tuple[list[Case], int]:
-        """List cases with pagination and optional status filter."""
-        stmt = select(CaseModel)
-        if status:
-            stmt = stmt.where(CaseModel.status == status.value)
+        """List cases with pagination and optional status and accessibility filters."""
+        if accessible_case_ids is not None and len(accessible_case_ids) == 0:
+            return [], 0
 
+        stmt = select(CaseModel)
         total_stmt = select(CaseModel)
         if status:
+            stmt = stmt.where(CaseModel.status == status.value)
             total_stmt = total_stmt.where(CaseModel.status == status.value)
+        if accessible_case_ids is not None:
+            stmt = stmt.where(CaseModel.id.in_(accessible_case_ids))
+            total_stmt = total_stmt.where(CaseModel.id.in_(accessible_case_ids))
 
         # Count total matches
         total = len(list(self.db.scalars(total_stmt).all()))
@@ -84,6 +91,7 @@ class CaseRepository:
     def _to_domain(m: CaseModel) -> Case:
         return Case(
             id=m.id,
+            organization_id=m.organization_id,
             case_reference=m.case_reference,
             title=m.title,
             description=m.description,

@@ -98,3 +98,32 @@ class ForensicException(PlatformException):
         self, message: str, code: str = "FORENSIC_ERROR", details: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code, details=details)
+
+
+class AuthenticationException(PlatformException):
+    """Raised when user authentication or token verification fails."""
+
+    def __init__(
+        self, message: str = "Authentication required.", details: dict[str, Any] | None = None
+    ) -> None:
+        super().__init__(message=message, code="AUTHENTICATION_REQUIRED", details=details)
+
+
+class ForbiddenException(PlatformException):
+    """Raised when an authenticated principal lacks required case-scoped RBAC permissions."""
+
+    def __init__(
+        self, message: str = "Permission denied.", details: dict[str, Any] | None = None
+    ) -> None:
+        super().__init__(message=message, code="PERMISSION_DENIED", details=details)
+
+
+class RateLimitException(PlatformException):
+    """Raised when client exceeds authentication or action rate limit thresholds."""
+
+    def __init__(
+        self,
+        message: str = "Too many requests. Please try again later.",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message=message, code="RATE_LIMIT_EXCEEDED", details=details)

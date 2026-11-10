@@ -15,13 +15,17 @@ from document_intelligence.api.dependencies import (
     get_forensic_processing_service,
     get_processing_run_repository,
     get_storage,
+    require_case_access,
 )
 from document_intelligence.core.exceptions import NotFoundException
 from document_intelligence.domain.enums import PipelineStatus
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.ocr import (
     ExtractedDocumentText,
+    ExtractedPage,
     ExtractedTable,
     LayoutRegion,
+    ObservationDisagreement,
     TextToken,
 )
 from document_intelligence.domain.models.processing_run import ProcessingRun
@@ -71,6 +75,37 @@ class PaginatedTokensResponse(BaseModel):
     offset: int
     limit: int
     tokens: list[TextToken]
+
+
+class PageLayerSummary(BaseModel):
+    """Summary of extraction layers, routing, and disagreements for a page."""
+
+    page_number: int
+    routing_decision: str | None = None
+    routing_reason: str | None = None
+    raster_area_ratio: float | None = None
+    vector_char_count: int | None = None
+    has_vector_text: bool = True
+    script_distribution: dict[str, float] = Field(default_factory=dict)
+    primary_engine: str | None = None
+    primary_raw_text: str = ""
+    primary_normalized_text: str = ""
+    primary_token_count: int = 0
+    primary_confidence: float | None = None
+    alternative_layers: dict[str, Any] = Field(default_factory=dict)
+    disagreements: list[ObservationDisagreement] = Field(default_factory=list)
+    potential_duplicates: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DocumentLayersResponse(BaseModel):
+    """Document-level multi-layer extraction and provenance overview."""
+
+    document_id: str
+    processing_run_id: str
+    schema_version: str = "2.0.0"
+    script_summary: dict[str, float] = Field(default_factory=dict)
+    total_pages: int
+    pages: list[PageLayerSummary]
 
 
 def _get_latest_ocr_doc(
@@ -126,6 +161,7 @@ def start_ocr_analysis(
     case_id: str,
     document_id: str,
     payload: StartOcrRequest = StartOcrRequest(),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     processing_service: ForensicProcessingService = Depends(get_forensic_processing_service),
 ) -> StartOcrResponse:
     """Execute OCR and Document Understanding on a document within an active case."""
@@ -160,6 +196,10 @@ def get_extracted_text(
         default=None, description="Filter pages by extraction status"
     ),
     language: str | None = Query(default=None, description="Filter by configured language"),
+    layer: str | None = Query(
+        default=None, description="Optional layer: 'primary', 'pdfium', or 'optical'"
+    ),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     doc_repo: DocumentRepository = Depends(get_document_repository),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
@@ -190,7 +230,33 @@ def get_extracted_text(
         s_lower = extraction_status.lower()
         filtered_pages = [p for p in filtered_pages if p.extraction_status.lower() == s_lower]
 
+    # Layer filtering: if 'pdfium' requested, inspect alternative_extractions if primary was optical
+    if layer and layer.lower() == "pdfium":
+        layer_pages: list[ExtractedPage] = []
+        for p in filtered_pages:
+            alt_pdfium = p.get_alternative_observation("pdfium")
+            if alt_pdfium:
+                layer_pages.append(
+                    ExtractedPage(
+                        page_number=p.page_number,
+                        geometry=p.geometry,
+                        raw_text=alt_pdfium.raw_text,
+                        normalized_text=alt_pdfium.normalized_text or alt_pdfium.raw_text,
+                        tokens=alt_pdfium.tokens,
+                        lines=alt_pdfium.lines,
+                        has_vector_text=True,
+                        engine_name=alt_pdfium.engine_name,
+                        routing_decision=p.routing_decision,
+                        raster_area_ratio=p.raster_area_ratio,
+                        vector_char_count=len(alt_pdfium.raw_text),
+                    )
+                )
+            else:
+                layer_pages.append(p)
+        filtered_pages = layer_pages
+
     return ExtractedDocumentText(
+        schema_version=doc_text.schema_version,
         document_id=doc_text.document_id,
         processing_run_id=doc_text.processing_run_id,
         engine_metadata=doc_text.engine_metadata,
@@ -201,23 +267,72 @@ def get_extracted_text(
         full_normalized_text="\n\n".join(
             p.normalized_text for p in filtered_pages if p.normalized_text
         ),
+        script_summary=doc_text.script_summary,
     )
 
-    if extraction_status is not None:
-        s_lower = extraction_status.lower()
-        filtered_pages = [p for p in filtered_pages if p.extraction_status.lower() == s_lower]
 
-    return ExtractedDocumentText(
+@router.get("/layers", response_model=DocumentLayersResponse)
+def get_extracted_layers(
+    case_id: str,
+    document_id: str,
+    page_number: int | None = Query(default=None, ge=1),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
+    case_service: CaseService = Depends(get_case_service),
+    doc_repo: DocumentRepository = Depends(get_document_repository),
+    run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
+    storage: DocumentStorageProtocol = Depends(get_storage),
+) -> DocumentLayersResponse:
+    """Inspect page-level routing decisions, dual-layer observations, and evidentiary disagreements."""
+    doc_text = _get_latest_ocr_doc(case_id, document_id, case_service, doc_repo, run_repo, storage)
+
+    pages = doc_text.pages
+    if page_number is not None:
+        pages = [p for p in pages if p.page_number == page_number]
+        if not pages:
+            raise NotFoundException(f"Page {page_number} not found in extracted document.")
+
+    summaries: list[PageLayerSummary] = []
+    for p in pages:
+        # Extract potential duplicates if recorded in alternative metadata
+        potential_dups: list[dict[str, Any]] = []
+        alt_obs = p.get_alternative_observation("pdfium")
+        if alt_obs and "potential_duplicate_tokens" in alt_obs.metadata:
+            potential_dups = alt_obs.metadata["potential_duplicate_tokens"]
+
+        primary_conf = None
+        if p.tokens:
+            confs = [t.confidence for t in p.tokens if t.confidence is not None]
+            if confs:
+                primary_conf = round(sum(confs) / len(confs), 4)
+
+        summaries.append(
+            PageLayerSummary(
+                page_number=p.page_number,
+                routing_decision=p.routing_decision,
+                routing_reason=p.routing_reason,
+                raster_area_ratio=p.raster_area_ratio,
+                vector_char_count=p.vector_char_count,
+                has_vector_text=p.has_vector_text,
+                script_distribution=p.script_distribution,
+                primary_engine=p.engine_name
+                or (doc_text.engine_metadata.engine_name if doc_text.engine_metadata else None),
+                primary_raw_text=p.raw_text,
+                primary_normalized_text=p.normalized_text,
+                primary_token_count=len(p.tokens),
+                primary_confidence=primary_conf,
+                alternative_layers=p.alternative_extractions,
+                disagreements=p.inspect_observation_disagreements(),
+                potential_duplicates=potential_dups,
+            )
+        )
+
+    return DocumentLayersResponse(
         document_id=doc_text.document_id,
         processing_run_id=doc_text.processing_run_id,
-        engine_metadata=doc_text.engine_metadata,
-        pages=filtered_pages,
-        total_pages=len(filtered_pages),
-        total_tokens=sum(len(p.tokens) for p in filtered_pages),
-        full_raw_text="\n\n".join(p.raw_text for p in filtered_pages if p.raw_text),
-        full_normalized_text="\n\n".join(
-            p.normalized_text for p in filtered_pages if p.normalized_text
-        ),
+        schema_version=doc_text.schema_version,
+        script_summary=doc_text.script_summary,
+        total_pages=len(summaries),
+        pages=summaries,
     )
 
 
@@ -226,6 +341,7 @@ def get_extracted_layout(
     case_id: str,
     document_id: str,
     page_number: int | None = Query(default=None, ge=1),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     doc_repo: DocumentRepository = Depends(get_document_repository),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
@@ -245,6 +361,7 @@ def get_extracted_tables(
     case_id: str,
     document_id: str,
     page_number: int | None = Query(default=None, ge=1),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     doc_repo: DocumentRepository = Depends(get_document_repository),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
@@ -266,14 +383,25 @@ def get_extracted_tokens(
     page_number: int | None = Query(default=None, ge=1),
     engine_name: str | None = Query(default=None, description="Filter tokens by engine name"),
     query: str | None = Query(default=None, description="Optional text filter query"),
+    script: str | None = Query(
+        default=None,
+        description="Filter by script: 'DEVANAGARI', 'LATIN', 'MIXED', 'NUMERIC', 'PUNCTUATION'",
+    ),
+    is_uncertain: bool | None = Query(
+        default=None, description="Filter by token uncertainty status"
+    ),
+    layer: str | None = Query(
+        default=None, description="Filter by extraction layer: 'primary' or 'pdfium'"
+    ),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     doc_repo: DocumentRepository = Depends(get_document_repository),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
     storage: DocumentStorageProtocol = Depends(get_storage),
 ) -> PaginatedTokensResponse:
-    """Retrieve token-level information with bounding boxes, search filtering, and pagination."""
+    """Retrieve token-level information with bounding boxes, search filtering, script filtering, and pagination."""
     doc_text = _get_latest_ocr_doc(case_id, document_id, case_service, doc_repo, run_repo, storage)
     all_tokens: list[TextToken] = []
     for page in doc_text.pages:
@@ -282,7 +410,15 @@ def get_extracted_tokens(
         if engine_name is not None:
             if not page.engine_name or engine_name.lower() not in page.engine_name.lower():
                 continue
-        all_tokens.extend(page.tokens)
+
+        # Layer selection
+        page_toks = page.tokens
+        if layer and layer.lower() == "pdfium":
+            alt_pdfium = page.get_alternative_observation("pdfium")
+            if alt_pdfium:
+                page_toks = alt_pdfium.tokens
+
+        all_tokens.extend(page_toks)
 
     if query:
         q_lower = query.lower()
@@ -292,6 +428,19 @@ def get_extracted_tokens(
             if q_lower in t.raw_text.lower()
             or (t.normalized_text and q_lower in t.normalized_text.lower())
         ]
+
+    if script:
+        s_upper = script.upper()
+
+        def _get_script_str(val: Any) -> str:
+            if val is None:
+                return ""
+            return str(val.value if hasattr(val, "value") else val).upper()
+
+        all_tokens = [t for t in all_tokens if _get_script_str(t.detected_script) == s_upper]
+
+    if is_uncertain is not None:
+        all_tokens = [t for t in all_tokens if t.is_uncertain is is_uncertain]
 
     total_count = len(all_tokens)
     paginated = all_tokens[offset : offset + limit]
@@ -306,11 +455,16 @@ def get_extracted_tokens(
 
 @router.get("/capabilities")
 def get_ocr_capabilities(
+    case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     registry: AnalyzerRegistry = Depends(get_analyzer_registry),
 ) -> dict[str, Any]:
     """Retrieve capabilities and supported media types of registered OCR engines."""
     ocr_analyzers = [a for a in registry.list_analyzers() if "ocr" in a.analyzer_id.lower()]
     return {
+        "supported_scripts": ["LATIN", "DEVANAGARI", "MIXED", "NUMERIC"],
+        "normalization_version": "2.0.0",
+        "routing_decisions": ["NO_TEXT", "VECTOR_ONLY", "OCR_ONLY", "HYBRID_FUSION"],
         "registered_ocr_engines": [
             {
                 "analyzer_id": a.analyzer_id,
@@ -320,5 +474,5 @@ def get_ocr_capabilities(
                 "supported_capabilities": a.supported_capabilities,
             }
             for a in ocr_analyzers
-        ]
+        ],
     }

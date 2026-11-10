@@ -1,0 +1,112 @@
+"""Purchase order extraction schema definition (Version 1.0.0)."""
+
+from document_intelligence.domain.enums import DocumentClass, FieldDataType
+from document_intelligence.domain.models.extraction import (
+    ExtractionSchema,
+    FieldDefinition,
+)
+
+PURCHASE_ORDER_SCHEMA_V1 = ExtractionSchema(
+    schema_id="purchase_order_v1",
+    document_class=DocumentClass.PURCHASE_ORDER,
+    version="1.0.0",
+    description="Commercial purchase order structured field extraction schema.",
+    fields=[
+        FieldDefinition(
+            field_key="po_number",
+            label="Purchase Order Number",
+            data_type=FieldDataType.STRING,
+            is_required=True,
+            description="Unique purchase order reference identifier.",
+            validation_rules=["alphanumeric_identifier"],
+        ),
+        FieldDefinition(
+            field_key="po_date",
+            label="Purchase Order Date",
+            data_type=FieldDataType.DATE,
+            is_required=True,
+            description="Issue date of the purchase order (normalized to ISO 8601 YYYY-MM-DD).",
+            validation_rules=["iso_date"],
+        ),
+        FieldDefinition(
+            field_key="supplier_name",
+            label="Supplier / Vendor Name",
+            data_type=FieldDataType.STRING,
+            is_required=True,
+            description="Legal or commercial name of the intended supplier/vendor.",
+            validation_rules=["non_empty_string"],
+        ),
+        FieldDefinition(
+            field_key="supplier_tax_id",
+            label="Supplier Tax ID",
+            data_type=FieldDataType.STRING,
+            is_required=False,
+            description="Tax identifier of supplier.",
+            validation_rules=["tax_identifier"],
+        ),
+        FieldDefinition(
+            field_key="buyer_name",
+            label="Buyer / Purchasing Entity",
+            data_type=FieldDataType.STRING,
+            is_required=True,
+            description="Legal or commercial name of the purchasing organization.",
+            validation_rules=["non_empty_string"],
+        ),
+        FieldDefinition(
+            field_key="buyer_tax_id",
+            label="Buyer Tax ID",
+            data_type=FieldDataType.STRING,
+            is_required=False,
+            description="Tax identifier of purchasing entity.",
+            validation_rules=["tax_identifier"],
+        ),
+        FieldDefinition(
+            field_key="line_item_quantity",
+            label="Line Item Quantity",
+            data_type=FieldDataType.DECIMAL,
+            is_required=False,
+            description="Ordered quantity for line item.",
+            validation_rules=["decimal_amount"],
+        ),
+        FieldDefinition(
+            field_key="line_item_unit_price",
+            label="Line Item Unit Price",
+            data_type=FieldDataType.DECIMAL,
+            is_required=False,
+            description="Unit price per item.",
+            validation_rules=["decimal_amount"],
+        ),
+        FieldDefinition(
+            field_key="subtotal",
+            label="Subtotal Amount",
+            data_type=FieldDataType.DECIMAL,
+            is_required=False,
+            description="Net subtotal before taxes.",
+            validation_rules=["decimal_amount"],
+        ),
+        FieldDefinition(
+            field_key="tax_amount",
+            label="Tax Amount",
+            data_type=FieldDataType.DECIMAL,
+            is_required=False,
+            description="Total estimated tax amount.",
+            validation_rules=["decimal_amount"],
+        ),
+        FieldDefinition(
+            field_key="total_amount",
+            label="Total Amount",
+            data_type=FieldDataType.DECIMAL,
+            is_required=True,
+            description="Total authorized purchase order amount.",
+            validation_rules=["decimal_amount", "arithmetic_check"],
+        ),
+        FieldDefinition(
+            field_key="currency",
+            label="Currency Code",
+            data_type=FieldDataType.CURRENCY,
+            is_required=False,
+            description="Normalized ISO currency code (USD, EUR, GBP, INR, etc.).",
+            validation_rules=["iso_currency_code"],
+        ),
+    ],
+)

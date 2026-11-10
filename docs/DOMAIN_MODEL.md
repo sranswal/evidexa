@@ -1,6 +1,6 @@
 # Domain Model Specification
 **Project:** Enterprise Document Forensics & Contextual Intelligence Platform  
-**Phase:** 2A — Foundation & Core Architecture  
+**Phase:** 2A - Foundation & Core Architecture  
 **Document Type:** Domain Model, Entities, Enums, and Business Invariants  
 **Date:** November 2026
 
@@ -438,5 +438,167 @@ Pure domain models representing text tokens, reading order, lines, blocks, layou
 - **Masked Account Matches:** Masked bank account last-4 matches are weak evidence only (`score <= 0.40`).
 - **Strict Case Isolation:** All relationship evaluations and lookups are strictly bounded within a single case. Cross-case queries return HTTP 404 (`SecurityException`).
 - **Zero Plaintext PII Persistence:** Account numbers are masked immediately; plaintext account digits never enter relational tables, artifacts, or logs.
+
+### 1.14 Cross-Document Consistency Engine Models
+
+The consistency analysis engine evaluates pairs or sets of documents belonging to the same investigation case to identify discrepancies, contradictions, missing information, or anomalous relationships according to deterministic evidentiary rules.
+
+#### 1.14.1 Consistency Enums
+- **`ConsistencyOutcome` (Enum):**
+  - `CONSISTENT`: Compared values and references match within configured deterministic tolerances.
+  - `INCONSISTENT`: Clear discrepancy or contradiction detected between documents with sufficient evidence.
+  - `POTENTIAL_ANOMALY`: Suspicious pattern detected warranting investigation (e.g. duplicate document content across distinct IDs, multiple ambiguous bank statement settlements, conflicting invoice reference reuse).
+  - `INSUFFICIENT_EVIDENCE`: Required comparison fields are missing, unstated, or unparseable. EVIDEXA explicitly treats missing information as insufficient evidence, never as confirmation or contradiction.
+  - `NOT_APPLICABLE`: Rule preconditions not met for the evaluated document pair.
+- **`ConsistencyReviewAction` (Enum):**
+  - `CONFIRM_INCONSISTENCY`: Human investigator confirms the inconsistency is genuine.
+  - `DISMISS_FALSE_POSITIVE`: Investigator dismisses the finding as expected business variance or benign difference.
+  - `RESOLVE_EXCEPTION`: Investigator marks the anomaly as an approved/explained business exception.
+  - `MARK_INCONCLUSIVE`: Investigator determines evidence is inconclusive.
+- **`ConsistencyDetectionMethod` (Enum):**
+  - `DETERMINISTIC_RULE`: Exact comparison against standardized schema rules and decimal tolerances.
+  - `CROSS_FIELD_RECONCILIATION`: Line-item vs header or multi-document balance matching.
+  - `TEMPORAL_ORDER_VALIDATION`: Lifecycle date ordering validation.
+  - `FUZZY_NAME_RECONCILIATION`: Token set ratio match above strict identity threshold.
+  - `HASH_DIGEST_MATCH`: Cryptographic SHA-256 byte identity match.
+  - `MANUAL_OVERRIDE`: Investigator review decision.
+
+#### 1.14.2 Consistency Domain Models
+- **`ConsistencyComparison` (Value Object):**
+  - `field_name: str`: Business field compared (e.g. `total_amount`, `purchase_order_reference`, `tax_id`).
+  - `document_id_a: UUID`: Left document in comparison.
+  - `document_id_b: UUID`: Right document in comparison.
+  - `raw_value_a: Optional[str]`: Raw text extracted from document A.
+  - `raw_value_b: Optional[str]`: Raw text extracted from document B.
+  - `normalized_value_a: Optional[str]`: Cleaned, typed or normalized representation for comparison.
+  - `normalized_value_b: Optional[str]`: Cleaned, typed or normalized representation for comparison.
+  - `difference_description: Optional[str]`: Exact numeric difference, currency mismatch explanation, or textual delta.
+- **`ConsistencyEvidenceLocation` (Value Object):**
+  - `document_id: UUID`, `page_number: int`, `bounding_box: Optional[BoundingBox]`.
+- **`ConsistencyEvidence` (Value Object):**
+  - `supporting_evidence_ids: List[str]`, `contradicting_evidence_ids: List[str]`, `source_locations: List[ConsistencyEvidenceLocation]`, `reconciliation_notes: Optional[str]`.
+- **`ConsistencyReview` (Entity):**
+  - `id: UUID`, `finding_id: UUID`, `case_id: UUID`, `action: ConsistencyReviewAction`, `reviewer_id: str`, `notes: Optional[str]`, `reviewed_at: datetime`.
+- **`ConsistencyFinding` (Entity / Aggregate Root):**
+  - `id: UUID`, `case_id: UUID`, `analysis_run_id: UUID`, `rule_id: str`, `rule_version: str`, `severity: FindingSeverity`, `outcome: ConsistencyOutcome`, `detection_method: ConsistencyDetectionMethod`, `affected_document_ids: List[UUID]`, `compared_fields: List[str]`, `title: str`, `description: str`, `comparisons: List[ConsistencyComparison]`, `evidence: ConsistencyEvidence`, `is_reviewed: bool`, `current_review: Optional[ConsistencyReview]`, `created_at: datetime`.
+- **`ConsistencyCheck` (Value Object):**
+  - `id: UUID`, `rule_id: str`, `document_ids: List[UUID]`, `outcome: ConsistencyOutcome`, `message: str`, `comparisons: List[ConsistencyComparison]`, `evidence: ConsistencyEvidence`, `metadata: Dict[str, Any]`.
+- **`ConsistencyRule` (Value Object):**
+  - `rule_id: str`, `name: str`, `description: str`, `version: str`, `target_document_classes: List[DocumentClass]`, `severity: FindingSeverity`, `is_active: bool`.
+- **`ConsistencyAnalysisRun` (Aggregate / Value Object):**
+  - `id: UUID`, `case_id: UUID`, `rules_executed: List[str]`, `documents_analyzed_count: int`, `findings_count: int`, `status: ProcessingStatus`, `execution_time_ms: float`, `storage_path: Optional[str]`, `storage_sha256: Optional[str]`, `created_at: datetime`.
+- **`ConsistencyAnalysisResult` (Aggregate):**
+  - `case_id: UUID`, `run: ConsistencyAnalysisRun`, `findings: List[ConsistencyFinding]`, `checks: List[ConsistencyCheck]`.
+
+#### 1.14.3 Evidentiary Invariants & Non-Goals
+- **Non-Verdict Invariant:** Consistency findings represent analytical observations of match, discrepancy, anomaly, or insufficiency (`ConsistencyOutcome`). They never declare "fraud", "counterfeiting", or legal liability.
+- **Strict Decimal Monetary Precision:** All monetary amounts are parsed and compared using arbitrary-precision `Decimal`. Floating-point operations (`float`) are prohibited in financial delta evaluations. Mismatched currency codes (`USD` vs `EUR`) are reported as currency contradictions rather than numeric differences.
+- **Insufficient Evidence Distinction:** If a document lacks an optional field (e.g. receipt without explicit tax ID, invoice without purchase order reference), the engine marks the check `INSUFFICIENT_EVIDENCE` or `NOT_APPLICABLE`. It never fabricates values or treats absence as proof of contradiction.
+- **Single-Case Boundary Isolation:** Analysis runs and finding queries are strictly scoped to a single `case_id`. All repository queries enforce case boundaries; archived cases are write-protected against new analysis runs or reviews (`SecurityException` / HTTP 403).
+
+### 1.15 Unified Evidence Graph Domain Models
+
+The Evidence Graph projection layer models existing authoritative records into a connected, traversable graph for investigator exploration and multi-hop relationship pathfinding.
+
+#### 1.15.1 Graph Enums
+- **`GraphNodeType` (Enum):**
+  - Core Structural: `CASE`, `DOCUMENT`.
+  - Evidence & Forensics: `EVIDENCE`, `FORENSIC_FINDING`, `CONSISTENCY_FINDING`.
+  - Extracted Real-World Entities: `PERSON`, `ORGANIZATION`, `SUPPLIER`, `BUYER`, `MERCHANT`, `BANK`, `ACCOUNT`.
+  - Structured Commercial Records: `INVOICE`, `RECEIPT`, `PURCHASE_ORDER`, `BANK_TRANSACTION`.
+- **`GraphEdgePredicate` (Enum):**
+  - Structural & Evidence: `CONTAINS_DOCUMENT`, `HAS_EVIDENCE`, `SUPPORTED_BY`, `CONTRADICTED_BY`, `PERTAINS_TO`, `COMPARES_DOCUMENT`, `EXTRACTED_FROM`, `MATCHES_IDENTITY`.
+  - V2 Directed Semantic Predicates: `ISSUED`, `BILLED_TO`, `INVOICED`, `REFERENCES_PURCHASE_ORDER`, `REFERENCES_INVOICE`, `REFERENCES_RECEIPT`, `SUPPORTS_DOCUMENT`, `DUPLICATE_OF`, `AMENDS_DOCUMENT`, `RECORDS_PAYMENT`, `CONTAINS_TRANSACTION`, `MAY_SETTLE`, `REFUNDS`, `TRANSFERS_TO`, `HELD_BY`, `REPRESENTS`, `SUPPLIES`, `CUSTOMER_OF`.
+
+#### 1.15.2 Graph Domain Models
+- **`GraphNode` (Value Object):**
+  - `id: str`: Deterministic UUIDv5 (`deterministic_node_id`) derived from `case_id`, `node_type`, and `source_entity_id`.
+  - `case_id: str`: Bounded investigation case identifier.
+  - `node_type: GraphNodeType`: Categorical node classification.
+  - `source_entity_type: str`: Underlying authoritative domain entity (e.g. `Document`, `EvidenceNode`, `ForensicFinding`, `ConsistencyFinding`, `Organization`).
+  - `source_entity_id: str`: Authoritative primary key in relational database.
+  - `label: str`: Sanitized display label guaranteeing zero unmasked plaintext PII.
+  - `display_attributes: Dict[str, Any]`: Safe presentation metadata.
+  - `provenance: Dict[str, Any]`: Complete traceability links (page indices, bounding boxes, storage keys, component versions).
+  - `created_at: Optional[datetime]`: Origin timestamp.
+- **`GraphEdge` (Value Object):**
+  - `id: str`: Deterministic UUIDv5 (`deterministic_edge_id`) derived from `case_id`, `source_node_id`, `predicate`, `target_node_id`, and disambiguator.
+  - `case_id: str`: Bounded investigation case identifier.
+  - `source_node_id: str`: Subject node ID.
+  - `target_node_id: str`: Object node ID.
+  - `predicate: str`: Directed relationship predicate.
+  - `status: str`: Evidentiary status (`CONFIRMED`, `CANDIDATE`, `CONTRADICTED`, `UNRESOLVED`, `REJECTED`).
+  - `status_determination_method: Optional[str]`: `EVIDENTIARY_RULE` vs `HUMAN_REVIEW`.
+  - `score: Optional[float]`: Deterministic rule ranking or similarity score.
+  - `supporting_evidence_ids: List[str]`: Corroborating evidence node IDs.
+  - `contradicting_evidence_ids: List[str]`: Contradicting evidence signals.
+  - `source_relationship_id: Optional[str]`: Underlying relationship or match record ID.
+  - `explanation: Optional[str]`: Factual status rationale.
+- **`GraphPath` (Value Object):**
+  - `nodes: List[GraphNode]`: Ordered sequence of nodes from source to target.
+  - `edges: List[GraphEdge]`: Ordered sequence of connecting directed edges.
+  - `length: int`: Edge count along path.
+  - `is_confirmed_only: bool`: True if all edges in path possess status `CONFIRMED`.
+- **`GraphSnapshot` (Aggregate):**
+  - `case_id: str`, `nodes: List[GraphNode]`, `edges: List[GraphEdge]`, `total_nodes: int`, `total_edges: int`, `truncated: bool`, `query_metadata: Dict[str, Any]`, `projection_version: str`.
+- **`GraphNeighborhoodResult` (Aggregate):**
+  - `case_id: str`, `center_node_id: str`, `hops: int`, `nodes: List[GraphNode]`, `edges: List[GraphEdge]`, `total_nodes: int`, `total_edges: int`, `truncated: bool`.
+- **`GraphPathsResult` (Aggregate):**
+  - `case_id: str`, `source_node_id: str`, `target_node_id: str`, `max_depth: int`, `paths: List[GraphPath]`, `total_paths_found: int`, `truncated: bool`.
+
+#### 1.15.3 Evidentiary Invariants & Non-Goals
+- **In-Memory Projection Invariant:** The Evidence Graph is an in-memory projection over authoritative relational records. It is never persisted as a secondary graph database (e.g. Neo4j).
+- **Directional Preservation:** Relationship edges preserve canonical Subject $\rightarrow$ Object direction as defined in Ontology V2. Direction is never reversed for visual layout convenience.
+- **Status Non-Collapse:** Candidate, unresolved, or contradicted relationships are never collapsed or promoted to confirmed during graph assembly.
+- **Contradiction Retention:** Edges contradicted by opposing signals preserve their contradiction status and cited evidence IDs.
+- **Cycle Safety & Bounded Traversals:** Graph queries, neighborhoods, and pathfinding operate under hard safety bounds (max 5 hops, max depth 6, max 2000 nodes) with cycle detection preventing infinite loops.
+
+---
+
+### 1.16 Findings Aggregation, Investigator Workflow & Evidence Dossier (Phase 2D)
+
+#### 1.16.1 Dossier & Review Enums
+- **`AggregatedFindingCategory` (Enum):**
+  - `DOCUMENT_INTEGRITY`: Hash mismatches, tampered containers, or structural alterations.
+  - `VISUAL_ANOMALY`: Copy-move clones, ELA compression differences, spliced elements.
+  - `STRUCTURAL_ANOMALY`: Incremental updates after signature, malformed xref tables, appended objects.
+  - `EXTRACTION_ANOMALY`: Financial calculation errors, tax checksum failures, invalid formats.
+  - `CROSS_DOCUMENT_INCONSISTENCY`: Inconsistent amounts, dates, or vendor identities across files.
+  - `ENTITY_IDENTITY_CONFLICT`: Incompatible tax IDs or conflicting identities across matched records.
+  - `RELATIONSHIP_ANOMALY`: Contradicted relationships, conflicting document versions, duplicate records.
+  - `DUPLICATE_OR_CONFLICTING_RECORD`: Reused invoice numbers with divergent amounts or vendors.
+  - `OTHER`: Unclassified anomaly.
+- **`EvidentiaryClassification` (Enum):**
+  - `OBSERVED_FACT`: Ground-truth physical observation (e.g. byte length, cryptographic digest).
+  - `AUTOMATED_INDICATOR`: Algorithmic signal produced by automated analyzer (unreviewed).
+  - `ANALYTICAL_INTERPRETATION`: Inferred anomaly derived from multi-step comparison rules.
+  - `INVESTIGATOR_CONCLUSION`: Verified conclusion formally recorded by human investigator.
+- **`InvestigatorReviewAction` (Enum):**
+  - `MARK_NEEDS_REVIEW`, `CONFIRM_OBSERVATION`, `DISMISS_FALSE_POSITIVE`, `MARK_INCONCLUSIVE`, `REQUEST_MORE_EVIDENCE`.
+- **`DossierFormat` (Enum):**
+  - `PDF`, `JSON`.
+- **`DossierStatus` (Enum):**
+  - `DRAFT`: Active dossier undergoing compilation.
+  - `PENDING_REVIEW`: Awaiting formal sign-off.
+  - `APPROVED`: Frozen, sealed with canonical SHA-256 content hash.
+  - `SUPERSEDED`: Replaced by a newer version.
+
+#### 1.16.2 Core Dossier Domain Models
+- **`AggregatedFinding` (Value Object / Projection):**
+  - Standardized representation combining forensic findings, cross-document inconsistencies, relationship anomalies, and candidate conflicts with provenance, severity, confidence, affected documents, and review history.
+- **`AggregatedFindingReview` (Entity):**
+  - `id: str`, `case_id: str`, `finding_id: str`, `action: InvestigatorReviewAction`, `reviewer_id: str`, `comment: str`, `reviewed_at: datetime`, `previous_status: str`, `new_status: str`.
+- **`DossierSection` (Value Object):**
+  - `section_id: str`, `title: str`, `order: int`, `content: str`, `items: List[Dict[str, Any]]`.
+- **`InvestigationDossier` (Aggregate Root):**
+  - `id: str`, `case_id: str`, `title: str`, `scope_and_purpose: str`, `version: int`, `status: DossierStatus`, `executive_summary: str`, `sections: List[DossierSection]`, `document_summaries: List[Dict[str, Any]]`, `finding_ids: List[str]`, `evidence_ids: List[str]`, `review_decisions: List[Dict[str, Any]]`, `limitations: List[str]`, `unresolved_questions: List[str]`, `content_hash: Optional[str]`, `dossier_payload: Dict[str, Any]`, `created_at: datetime`, `created_by: str`, `finalized_at: Optional[datetime]`.
+  - Methods: `finalize(content_hash, snapshot_payload)`, `create_next_version(created_by)`.
+
+#### 1.16.3 Evidentiary Principles & Legal Disclaimers
+- **Dossiers are Evidentiary Artifacts, Not Legal Verdicts:** A dossier compiles verified observations and automated indicators. It explicitly disclaims autonomous fraud determination or legal guilt.
+- **Content Hash Sealing:** Finalization freezes the snapshot payload and computes a deterministic SHA-256 digest ensuring tamper evidence.
+- **Zero Plaintext PII:** All PII in document summaries, finding explanations, and section items is sanitized prior to presentation and export.
+
+
 
 

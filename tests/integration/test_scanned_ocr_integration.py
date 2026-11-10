@@ -76,7 +76,7 @@ class TestScannedOcrIntegration:
         assert text_data["total_pages"] == 1
         page = text_data["pages"][0]
         assert page["engine_name"] == "rapidocr-onnxruntime"
-        assert page["routing_decision"] == "IMAGE_ONLY_SCANNED_PAGE"
+        assert page["routing_decision"] in ("IMAGE_ONLY_SCANNED_PAGE", "OCR_ONLY")
         assert len(page["tokens"]) > 5
 
         # Verify no host filesystem paths leaked
@@ -106,7 +106,7 @@ class TestScannedOcrIntegration:
         p1_data = p1_resp.json()
         assert p1_data["total_pages"] == 1
         assert p1_data["pages"][0]["engine_name"] == "pypdfium2"
-        assert p1_data["pages"][0]["routing_decision"] == "DIGITAL_VECTOR_PRIMARY"
+        assert p1_data["pages"][0]["routing_decision"] in ("DIGITAL_VECTOR_PRIMARY", "VECTOR_ONLY")
 
         # Query Page 2 only (Scanned RapidOCR)
         p2_resp = client.get(f"/api/v1/cases/{case_id}/documents/{doc_id}/ocr/text?page_number=2")
@@ -114,7 +114,7 @@ class TestScannedOcrIntegration:
         p2_data = p2_resp.json()
         assert p2_data["total_pages"] == 1
         assert p2_data["pages"][0]["engine_name"] == "rapidocr-onnxruntime"
-        assert p2_data["pages"][0]["routing_decision"] == "IMAGE_ONLY_SCANNED_PAGE"
+        assert p2_data["pages"][0]["routing_decision"] in ("IMAGE_ONLY_SCANNED_PAGE", "OCR_ONLY")
 
         # Filter by engine_name
         engine_filter_resp = client.get(

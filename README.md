@@ -1,17 +1,18 @@
 <div align="center">
 
-# EVIDEXA
+<img src="assets/logo.png" alt="EVIDEXA Logo" width="480" />
 
 ### **AI-Powered Digital Forensics & Document Intelligence**
 
 *Intelligence Behind Every Evidence.*  
 **Uncover the Truth. Verify Every Detail.**
 
-[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-00E5FF.svg?style=flat-square)](https://github.com/shubhamranswal/evidexa)
-[![Python](https://img.shields.io/badge/python-3.12-1C2541.svg?style=flat-square&logo=python)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-0B132B.svg?style=flat-square)](LICENSE)
-[![Architecture](https://img.shields.io/badge/architecture-modular--monolith-0077B6.svg?style=flat-square)](docs/ARCHITECTURE.md)
-[![Verification](https://img.shields.io/badge/tests-309%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
+[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-FF6B00.svg?style=flat-square)](https://github.com/shubhamranswal/evidexa)
+[![Python](https://img.shields.io/badge/python-3.12-121214.svg?style=flat-square&logo=python)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-080808.svg?style=flat-square)](LICENSE)
+[![Architecture](https://img.shields.io/badge/architecture-modular--monolith-27272A.svg?style=flat-square)](docs/ARCHITECTURE.md)
+[![Verification](https://img.shields.io/badge/backend%20tests-596%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-105%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
 
 <p align="center">
   <b>EVIDEXA</b> is an enterprise-grade digital forensics and contextual intelligence platform designed to uncover document tampering, extract structured information with mathematical precision, correlate entities across complex records, and construct tamper-evident, court-defensible investigation dossiers.
@@ -30,7 +31,7 @@
 
 ## The Problem EVIDEXA Solves
 
-Financial underwriting, corporate fraud examination, insurance claims auditing, and regulatory compliance investigations are overwhelmed by growing volumes of digital and scanned documentation. Sophisticated digital tampering—such as spliced bank balances, cloned signature blocks, injected font streams, hidden incremental revisions, and synthetic applicant networks—routinely slips past traditional inspection systems.
+Financial underwriting, corporate fraud examination, insurance claims auditing, and regulatory compliance investigations are overwhelmed by growing volumes of digital and scanned documentation. Sophisticated digital tampering-such as spliced bank balances, cloned signature blocks, injected font streams, hidden incremental revisions, and synthetic applicant networks-routinely slips past traditional inspection systems.
 
 Organizations face a critical trilemma:
 
@@ -200,12 +201,13 @@ EVIDEXA is built on seven inviolable operational principles:
 
 ## Technology Stack
 
-- **Runtime & Language:** Python 3.12 (64-bit), CPU-optimized execution.
+- **Runtime & Language:** Python 3.12 (64-bit), CPU-optimized execution; Node.js 18+ (frontend).
+- **Frontend Stack:** [React 18](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/), [TanStack Query v5](https://tanstack.com/query/latest), [Lucide Icons](https://lucide.dev/).
 - **Web & API Framework:** [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/), [Pydantic v2](https://docs.pydantic.dev/).
-- **Persistence & Migrations:** [SQLAlchemy 2.0](https://www.sqlalchemy.org/), [Alembic](https://alembic.sqlalchemy.org/) (Head: `006_relationship_semantics`).
+- **Persistence & Migrations:** [SQLAlchemy 2.0](https://www.sqlalchemy.org/), [Alembic](https://alembic.sqlalchemy.org/) (Head: `008_evidence_dossier`).
 - **PDF & Structural Forensics:** [pikepdf](https://pikepdf.readthedocs.io/), [pypdf](https://pypdf.readthedocs.io/), [pypdfium2](https://pypdfium2.readthedocs.io/).
 - **OCR & Computer Vision:** [RapidOCR (ONNX Runtime)](https://github.com/RapidAI/RapidOCR), [OpenCV Headless](https://opencv.org/), [Pillow](https://python-pillow.org/), [NumPy](https://numpy.org/).
-- **Testing & Quality Tooling:** [pytest](https://docs.pytest.org/), [Ruff](https://astral.sh/ruff), [MyPy](https://mypy-lang.org/) (strict mode).
+- **Testing & Quality Tooling:** [pytest](https://docs.pytest.org/), [Vitest](https://vitest.dev/), [Testing Library](https://testing-library.com/), [Ruff](https://astral.sh/ruff), [MyPy](https://mypy-lang.org/) (strict mode).
 
 ---
 
@@ -237,32 +239,49 @@ python -m pip install -e ".[dev]"
 # copy .env.example .env    # Windows
 # cp .env.example .env      # Linux / macOS
 
-# 5. Initialize database schema via Alembic migrations
+# 5. Initialize database schema via Alembic migrations (Head: 010_cross_case_correlation)
 alembic upgrade head
+
+# 6. Bootstrap local development administrator account (Argon2id hashed)
+python scripts/bootstrap_dev_user.py --email examiner@evidexa.local --username examiner --password "Investigator#2026" --full-name "Lead Examiner Sarah Vance"
 ```
 
 > [!NOTE]
-> **Pretrained Model Assets:** Optical character recognition utilizes lightweight RapidOCR ONNX models (`ch_PP-OCRv4_det_infer.onnx`, `ch_PP-OCRv4_rec_infer.onnx`, `ch_ppocr_mobile_v2.0_cls_infer.onnx`). These Apache-2.0 models are automatically installed within the `rapidocr-onnxruntime` package. No manual model downloads, HuggingFace tokens, or external weights are required.
+> **Pretrained Model Assets:** Optical character recognition utilizes lightweight RapidOCR ONNX models (`ch_PP-OCRv4_det_infer.onnx`, `ch_PP-OCRv4_rec_infer.onnx`, `ch_ppocr_mobile_v2.0_cls_infer.onnx`) and the PP-OCRv5 Devanagari recognition model for bilingual Hindi/English documentation. These Apache-2.0 models run 100% on CPU without requiring external cloud tokens or GPU hardware.
 
-### Running the API Server
+### Running the Application
 
 ```powershell
-# Start EVIDEXA API server
+# 1. Start EVIDEXA API backend server (port 8000)
 python -m uvicorn document_intelligence.main:app --host 127.0.0.1 --port 8000 --reload
+
+# 2. In a separate terminal, start the Investigator Frontend (port 5173)
+cd frontend
+npm install
+npm run dev
 ```
 
-Once running, access the interactive OpenAPI documentation:
-- **Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
-- **Health Check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+Once running:
+- **Public Showcase & Digital Light Table:** [http://localhost:5173/](http://localhost:5173/)
+- **Investigator Workspace Login:** [http://localhost:5173/login](http://localhost:5173/login)
+- **Local Account Registration:** [http://localhost:5173/register](http://localhost:5173/register)
+- **Interactive OpenAPI (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **ReDoc Documentation:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+- **Health Check Endpoint:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
 ### Running the Verification Suite
 
 ```powershell
-# Run the complete automated test suite (309 tests)
+# Run backend automated test suite (596 tests)
 python -m pytest
 
-# Run strict code quality checks
+# Run frontend test suite (105 Vitest tests) & production build
+cd frontend
+npm test
+npm run build
+cd ..
+
+# Run strict backend code quality checks
 python -m ruff check src tests
 python -m ruff format --check src tests
 python -m mypy src

@@ -13,8 +13,11 @@ from document_intelligence.domain.enums import (
     FindingStatus,
     IngestionStatus,
     LayoutRegionType,
+    NormalizationForm,
+    PageRoutingDecision,
     PipelineStatus,
     ReviewDecisionType,
+    ScriptType,
 )
 from document_intelligence.domain.identifiers import (
     generate_case_reference,
@@ -22,6 +25,7 @@ from document_intelligence.domain.identifiers import (
     utc_now,
 )
 from document_intelligence.domain.models import (
+    AlternativeExtractionObservation,
     AuditCheckpoint,
     AuditEvent,
     BoundingBox,
@@ -35,6 +39,7 @@ from document_intelligence.domain.models import (
     ForensicFinding,
     InvestigationDossier,
     LayoutRegion,
+    ObservationDisagreement,
     OcrEngineMetadata,
     PageGeometry,
     ProcessingRun,
@@ -53,6 +58,9 @@ __all__ = [
     "EvidenceType",
     "LayoutRegionType",
     "CoordinateSystem",
+    "ScriptType",
+    "PageRoutingDecision",
+    "NormalizationForm",
     "FindingCategory",
     "FindingSeverity",
     "FindingStatus",
@@ -84,4 +92,6 @@ __all__ = [
     "LayoutRegion",
     "ExtractedPage",
     "ExtractedDocumentText",
+    "AlternativeExtractionObservation",
+    "ObservationDisagreement",
 ]

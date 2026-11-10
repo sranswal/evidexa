@@ -10,8 +10,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from document_intelligence.api.dependencies import get_current_user
 from document_intelligence.core.config import Settings
+from document_intelligence.domain.identifiers import utc_now
 from document_intelligence.infrastructure.persistence.database import Base, get_db
+from document_intelligence.infrastructure.persistence.models import UserModel
 from document_intelligence.infrastructure.storage.filesystem import FilesystemDocumentStorage
 from document_intelligence.main import create_app
 
@@ -68,7 +71,25 @@ def client(test_settings: Settings, db_session: Session) -> Generator[TestClient
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
+    default_admin = UserModel(
+        id="usr-system-admin-001",
+        email="admin@evidexa.test",
+        username="admin",
+        hashed_password="argon2id_mock_hash",
+        full_name="Default System Admin",
+        is_active=True,
+        system_role="SYSTEM_ADMIN",
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    db_session.add(default_admin)
+    db_session.commit()
+
+    def override_get_current_user() -> UserModel:
+        return default_admin
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
     with TestClient(app) as test_client:
         yield test_client

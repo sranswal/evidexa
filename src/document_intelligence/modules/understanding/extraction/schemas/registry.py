@@ -10,6 +10,9 @@ from document_intelligence.modules.understanding.extraction.schemas.bank_stateme
 from document_intelligence.modules.understanding.extraction.schemas.invoice import (
     INVOICE_SCHEMA_V1,
 )
+from document_intelligence.modules.understanding.extraction.schemas.purchase_order import (
+    PURCHASE_ORDER_SCHEMA_V1,
+)
 from document_intelligence.modules.understanding.extraction.schemas.receipt import (
     RECEIPT_SCHEMA_V1,
 )
@@ -25,6 +28,7 @@ class SchemaRegistry:
         # Register default initial schemas
         self.register_schema(INVOICE_SCHEMA_V1)
         self.register_schema(RECEIPT_SCHEMA_V1)
+        self.register_schema(PURCHASE_ORDER_SCHEMA_V1)
         self.register_schema(BANK_STATEMENT_SCHEMA_V1)
 
     def register_schema(self, schema: ExtractionSchema) -> None:

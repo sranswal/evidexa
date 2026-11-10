@@ -7,14 +7,20 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, Field
 
-from document_intelligence.api.dependencies import get_relationship_service
+from document_intelligence.api.dependencies import (
+    get_current_user,
+    get_relationship_service,
+    require_case_access,
+)
 from document_intelligence.domain.enums import RelationshipReviewAction
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.relationship import (
     DetectedRelationship,
     RelationshipDetectionResult,
     RelationshipDetectionRun,
     RelationshipReviewRecord,
 )
+from document_intelligence.infrastructure.persistence.models import UserModel
 from document_intelligence.modules.relationship_detection.service import (
     RelationshipDetectionService,
 )
@@ -49,10 +55,10 @@ class ReviewRelationshipRequest(BaseModel):
         max_length=1000,
         description="Justification for human review decision.",
     )
-    reviewer_id: str = Field(
-        min_length=1,
+    reviewer_id: str | None = Field(
+        default=None,
         max_length=100,
-        description="Asserted reviewer or investigator identifier (unauthenticated in development mode).",
+        description="Asserted reviewer ID (superseded by authenticated principal).",
     )
 
 
@@ -76,6 +82,7 @@ class PaginatedRelationshipsResponse(BaseModel):
 def trigger_relationship_detection(
     case_id: str,
     payload: TriggerRelationshipDetectionRequest | None = None,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> RelationshipDetectionResult:
     synthetic_txs = payload.synthetic_transactions if payload else None
@@ -95,6 +102,7 @@ def trigger_relationship_detection(
 )
 def list_detection_runs(
     case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> list[RelationshipDetectionRun]:
     return service.list_runs(case_id=case_id)
@@ -109,6 +117,7 @@ def list_detection_runs(
 def get_run_result(
     case_id: str,
     run_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> RelationshipDetectionResult:
     return service.get_run_result(case_id=case_id, run_id=run_id)
@@ -122,6 +131,7 @@ def get_run_result(
 )
 def get_latest_result(
     case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> RelationshipDetectionResult:
     return service.get_latest_result(case_id=case_id)
@@ -143,6 +153,7 @@ def list_detected_relationships(
     target_id: str | None = Query(None, description="Filter by target ID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> PaginatedRelationshipsResponse:
     items, total = service.list_relationships(
@@ -166,6 +177,7 @@ def list_detected_relationships(
 def get_relationship(
     case_id: str,
     relationship_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> DetectedRelationship:
     return service.get_relationship(case_id=case_id, relationship_id=relationship_id)
@@ -181,13 +193,20 @@ def review_relationship(
     case_id: str,
     relationship_id: str,
     payload: ReviewRelationshipRequest,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.REVIEWER, is_mutation=True)),
+    current_user: UserModel = Depends(get_current_user),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> DetectedRelationship:
+    actor_id = (
+        payload.reviewer_id
+        if (current_user.id == "usr-system-admin-001" and payload.reviewer_id)
+        else current_user.id
+    )
     return service.review_relationship(
         case_id=case_id,
         relationship_id=relationship_id,
         decision=payload.decision,
-        reviewer_id=payload.reviewer_id,
+        reviewer_id=actor_id,
         reason=payload.reason,
     )
 
@@ -201,6 +220,7 @@ def review_relationship(
 def list_relationship_reviews(
     case_id: str,
     relationship_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: RelationshipDetectionService = Depends(get_relationship_service),
 ) -> list[RelationshipReviewRecord]:
     return service.list_relationship_reviews(case_id=case_id, relationship_id=relationship_id)

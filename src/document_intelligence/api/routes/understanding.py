@@ -7,13 +7,19 @@ from typing import Any
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
-from document_intelligence.api.dependencies import get_document_understanding_service
+from document_intelligence.api.dependencies import (
+    get_current_user,
+    get_document_understanding_service,
+    require_case_access,
+)
 from document_intelligence.domain.enums import DocumentClass
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.classification import DocumentClassificationResult
 from document_intelligence.domain.models.extraction import (
     DocumentExtractionResult,
     ExtractionSchema,
 )
+from document_intelligence.infrastructure.persistence.models import UserModel
 from document_intelligence.modules.understanding.service import (
     DocumentUnderstandingService,
 )
@@ -38,10 +44,10 @@ class OverrideClassificationRequest(BaseModel):
 
     target_class: DocumentClass = Field(description="New classification to apply.")
     reason: str = Field(min_length=1, max_length=1000, description="Justification for override.")
-    overridden_by: str = Field(
-        min_length=1,
+    overridden_by: str | None = Field(
+        default=None,
         max_length=100,
-        description="Asserted reviewer or investigator identifier (unauthenticated in development mode).",
+        description="Asserted reviewer ID (superseded by authenticated principal).",
     )
 
 
@@ -74,6 +80,7 @@ def classify_document(
     case_id: str,
     document_id: str,
     request: ClassifyDocumentRequest | None = None,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> DocumentClassificationResult:
     opts = request.options if request else {}
@@ -90,6 +97,7 @@ def classify_document(
 def get_classification(
     case_id: str,
     document_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> DocumentClassificationResult:
     return service.get_latest_classification(case_id=case_id, document_id=document_id)
@@ -106,13 +114,20 @@ def override_classification(
     case_id: str,
     document_id: str,
     request: OverrideClassificationRequest,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.REVIEWER, is_mutation=True)),
+    current_user: UserModel = Depends(get_current_user),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> DocumentClassificationResult:
+    actor_id = (
+        request.overridden_by
+        if (current_user.id == "usr-system-admin-001" and request.overridden_by)
+        else current_user.id
+    )
     return service.override_classification(
         case_id=case_id,
         document_id=document_id,
         overridden_class=request.target_class,
-        overridden_by=request.overridden_by,
+        overridden_by=actor_id,
         reason=request.reason,
     )
 
@@ -133,6 +148,7 @@ def extract_fields(
     case_id: str,
     document_id: str,
     request: ExtractFieldsRequest | None = None,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> DocumentExtractionResult:
     schema_id = request.schema_id if request else None
@@ -155,6 +171,7 @@ def extract_fields(
 def get_extraction(
     case_id: str,
     document_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> DocumentExtractionResult:
     return service.get_latest_extraction(case_id=case_id, document_id=document_id)
@@ -170,6 +187,7 @@ def get_extraction(
 def list_schemas(
     case_id: str,
     document_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> list[ExtractionSchema]:
     return service.schema_registry.list_schemas()
@@ -186,6 +204,7 @@ def get_schema(
     case_id: str,
     document_id: str,
     schema_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     service: DocumentUnderstandingService = Depends(get_document_understanding_service),
 ) -> ExtractionSchema:
     schema = service.schema_registry.get_by_id(schema_id)

@@ -29,6 +29,7 @@ from document_intelligence.domain.models.ocr import (
     TextBlock,
     TextLine,
     TextToken,
+    create_traceable_token,
 )
 from document_intelligence.infrastructure.storage.filesystem import FilesystemDocumentStorage
 from document_intelligence.infrastructure.storage.interface import DocumentStorageProtocol
@@ -423,15 +424,16 @@ class PdfiumOcrAdapter(ForensicAnalyzer):
         reading_order_idx: int,
     ) -> TextToken:
         raw_text = "".join(chars)
-        norm_text = raw_text.strip()
 
         if not boxes:
-            return TextToken(
+            return create_traceable_token(
                 raw_text=raw_text,
-                normalized_text=norm_text,
+                bounding_box=None,
+                confidence=None,
                 reading_order_index=reading_order_idx,
                 is_coordinate_uncertain=True,
                 coordinate_uncertainty_reason="No character bounding box data returned by engine",
+                metadata={"confidence_calibration_method": "not_applicable_vector_extraction"},
             )
 
         min_x = min(b[0] for b in boxes)
@@ -451,9 +453,8 @@ class PdfiumOcrAdapter(ForensicAnalyzer):
 
         canonical_box = unrot_box.apply_rotation(unrot_geom, rotation)
 
-        return TextToken(
+        return create_traceable_token(
             raw_text=raw_text,
-            normalized_text=norm_text,
             bounding_box=canonical_box,
             confidence=None,  # PDFium programmatic text has no calibrated confidence; nullable
             reading_order_index=reading_order_idx,

@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 
 from document_intelligence.domain.enums import FieldValidationStatus
 from document_intelligence.domain.models.extraction import ExtractedFieldValue
+from document_intelligence.domain.models.ocr import convert_devanagari_numerals
 
 # ISO currency symbol and code mapping with minor-unit decimal precision
 CURRENCY_MINOR_UNITS: dict[str, int] = {
@@ -276,6 +277,9 @@ def normalize_and_validate_decimal(
         else:  # Likely thousands separator like 1,000
             clean = clean.replace(",", "")
 
+    # Translate any Devanagari numerals to ASCII digits before Decimal conversion
+    clean, _ = convert_devanagari_numerals(clean)
+
     try:
         val = Decimal(clean)
         if is_negative:
@@ -450,12 +454,15 @@ def mask_sensitive_account_number(raw_text: str) -> str:
     """Mask account number preserving only trailing 4 characters.
 
     Never logs or exposes the unmasked account number.
+    Supports both Latin and Devanagari digits.
     e.g. '123456789012' -> '****9012'
          '1234-5678-9012' -> '****9012'
          '****9012' -> '****9012'
          '123' -> '****'
+         '१२३४५६७८९०१२' -> '****9012'
     """
-    clean = re.sub(r"[^\w]", "", raw_text.strip())
+    converted, _ = convert_devanagari_numerals(raw_text.strip())
+    clean = re.sub(r"[^\w]", "", converted)
     if len(clean) < 4:
         return "****"
     last4 = clean[-4:]

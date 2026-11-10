@@ -22,6 +22,7 @@ class CaseService:
         description: str | None = None,
         created_by: str | None = None,
         metadata: dict[str, Any] | None = None,
+        organization_id: str | None = None,
     ) -> Case:
         """Create and persist a new investigation workspace."""
         case = Case(
@@ -29,6 +30,7 @@ class CaseService:
             description=description,
             created_by=created_by,
             metadata=metadata or {},
+            organization_id=organization_id,
         )
         saved_case = self.case_repo.save(case)
 
@@ -60,9 +62,12 @@ class CaseService:
         skip: int = 0,
         limit: int = 50,
         status: CaseStatus | None = None,
+        accessible_case_ids: list[str] | None = None,
     ) -> tuple[list[Case], int]:
         """List cases with pagination and optional filter."""
-        return self.case_repo.list_cases(skip=skip, limit=limit, status=status)
+        return self.case_repo.list_cases(
+            skip=skip, limit=limit, status=status, accessible_case_ids=accessible_case_ids
+        )
 
     def transition_status(
         self,

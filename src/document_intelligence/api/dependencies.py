@@ -1,14 +1,29 @@
 """FastAPI dependency injection providers."""
 
-from fastapi import Depends
+from collections.abc import Callable
+
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from document_intelligence.core.config import Settings, settings
+from document_intelligence.core.exceptions import AuthenticationException
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.infrastructure.persistence.database import get_db
+from document_intelligence.infrastructure.persistence.models import UserModel
 from document_intelligence.infrastructure.repositories.audit_repository import AuditRepository
+from document_intelligence.infrastructure.repositories.auth_repository import AuthRepository
 from document_intelligence.infrastructure.repositories.case_repository import CaseRepository
+from document_intelligence.infrastructure.repositories.consistency_repository import (
+    ConsistencyRepository,
+)
+from document_intelligence.infrastructure.repositories.cross_case_repository import (
+    CrossCaseRepository,
+)
 from document_intelligence.infrastructure.repositories.document_repository import (
     DocumentRepository,
+)
+from document_intelligence.infrastructure.repositories.dossier_repository import (
+    DossierRepository,
 )
 from document_intelligence.infrastructure.repositories.entity_match_repository import (
     EntityMatchRepository,
@@ -27,13 +42,21 @@ from document_intelligence.infrastructure.repositories.relationship_repository i
 )
 from document_intelligence.infrastructure.storage.filesystem import FilesystemDocumentStorage
 from document_intelligence.infrastructure.storage.interface import DocumentStorageProtocol
+from document_intelligence.modules.assistant.provider import get_llm_provider
+from document_intelligence.modules.assistant.retriever import CaseEvidenceRetriever
+from document_intelligence.modules.assistant.service import AssistantService
 from document_intelligence.modules.audit.ledger import AuditLedgerService
+from document_intelligence.modules.auth.service import AuthenticationService, CaseAccessService
 from document_intelligence.modules.cases.service import CaseService
+from document_intelligence.modules.consistency.service import ConsistencyAnalysisService
+from document_intelligence.modules.cross_case.service import CrossCaseCorrelationService
 from document_intelligence.modules.documents.service import DocumentService
+from document_intelligence.modules.dossier.service import InvestigationDossierService
 from document_intelligence.modules.entity_resolution.service import (
     EntityResolutionService,
 )
 from document_intelligence.modules.forensics.adapters.ocr import (
+    DevanagariRapidOcrAdapter,
     HybridOcrAdapter,
     PdfiumOcrAdapter,
     RapidOcrAdapter,
@@ -52,6 +75,7 @@ from document_intelligence.modules.forensics.interfaces.registry import (
     AnalyzerRegistry,
     default_registry,
 )
+from document_intelligence.modules.graph.service import EvidenceGraphService
 from document_intelligence.modules.relationship_detection.service import (
     RelationshipDetectionService,
 )
@@ -135,6 +159,8 @@ def get_analyzer_registry() -> AnalyzerRegistry:
         default_registry.register(RapidOcrAdapter())
     if not default_registry.get("hybrid-ocr-pipeline"):
         default_registry.register(HybridOcrAdapter())
+    if not default_registry.get("ppocrv5-devanagari-engine"):
+        default_registry.register(DevanagariRapidOcrAdapter())
     return default_registry
 
 
@@ -219,3 +245,177 @@ def get_relationship_service(
         entity_resolution_service=entity_resolution_service,
         understanding_service=understanding_service,
     )
+
+
+def get_consistency_service(
+    db: Session = Depends(get_db),
+    storage: DocumentStorageProtocol = Depends(get_storage),
+    audit_service: AuditLedgerService = Depends(get_audit_service),
+    case_service: CaseService = Depends(get_case_service),
+    understanding_service: DocumentUnderstandingService = Depends(
+        get_document_understanding_service
+    ),
+    relationship_service: RelationshipDetectionService = Depends(get_relationship_service),
+) -> ConsistencyAnalysisService:
+    """Retrieve ConsistencyAnalysisService with dependencies wired."""
+    return ConsistencyAnalysisService(
+        case_service=case_service,
+        document_repo=DocumentRepository(db),
+        run_repo=ProcessingRunRepository(db),
+        consistency_repo=ConsistencyRepository(db),
+        storage=storage,
+        audit_service=audit_service,
+        understanding_service=understanding_service,
+        entity_match_repo=EntityMatchRepository(db),
+        relationship_repo=RelationshipRepository(db),
+        evidence_repo=EvidenceRepository(db),
+    )
+
+
+def get_evidence_graph_service(
+    db: Session = Depends(get_db),
+) -> EvidenceGraphService:
+    """Retrieve EvidenceGraphService with repositories wired."""
+    return EvidenceGraphService(
+        case_repo=CaseRepository(db),
+        document_repo=DocumentRepository(db),
+        evidence_repo=EvidenceRepository(db),
+        finding_repo=FindingRepository(db),
+        consistency_repo=ConsistencyRepository(db),
+        relationship_repo=RelationshipRepository(db),
+        entity_match_repo=EntityMatchRepository(db),
+    )
+
+
+def get_dossier_service(
+    db: Session = Depends(get_db),
+    audit_service: AuditLedgerService = Depends(get_audit_service),
+) -> InvestigationDossierService:
+    """Retrieve InvestigationDossierService with repositories and audit service wired."""
+    return InvestigationDossierService(
+        case_repo=CaseRepository(db),
+        document_repo=DocumentRepository(db),
+        finding_repo=FindingRepository(db),
+        consistency_repo=ConsistencyRepository(db),
+        relationship_repo=RelationshipRepository(db),
+        entity_match_repo=EntityMatchRepository(db),
+        evidence_repo=EvidenceRepository(db),
+        dossier_repo=DossierRepository(db),
+        audit_service=audit_service,
+    )
+
+
+def get_case_evidence_retriever(
+    db: Session = Depends(get_db),
+) -> CaseEvidenceRetriever:
+    """Retrieve CaseEvidenceRetriever with repositories wired."""
+    return CaseEvidenceRetriever(
+        case_repo=CaseRepository(db),
+        document_repo=DocumentRepository(db),
+        finding_repo=FindingRepository(db),
+        consistency_repo=ConsistencyRepository(db),
+        relationship_repo=RelationshipRepository(db),
+        entity_match_repo=EntityMatchRepository(db),
+        evidence_repo=EvidenceRepository(db),
+        dossier_repo=DossierRepository(db),
+    )
+
+
+def get_assistant_service(
+    db: Session = Depends(get_db),
+    retriever: CaseEvidenceRetriever = Depends(get_case_evidence_retriever),
+    audit_service: AuditLedgerService = Depends(get_audit_service),
+) -> AssistantService:
+    """Retrieve AssistantService with retriever, configured provider, and audit ledger."""
+    provider = get_llm_provider(settings)
+    return AssistantService(
+        retriever=retriever,
+        provider=provider,
+        audit_service=audit_service,
+    )
+
+
+# -----------------------------------------------------------------------------
+# Authentication & Authorization Dependencies
+# -----------------------------------------------------------------------------
+
+
+def get_auth_repo(db: Session = Depends(get_db)) -> AuthRepository:
+    """Retrieve authentication repository."""
+    return AuthRepository(db)
+
+
+def get_auth_service(repo: AuthRepository = Depends(get_auth_repo)) -> AuthenticationService:
+    """Retrieve authentication service."""
+    return AuthenticationService(repo=repo)
+
+
+def get_case_access_service(repo: AuthRepository = Depends(get_auth_repo)) -> CaseAccessService:
+    """Retrieve Case RBAC authorization service."""
+    return CaseAccessService(repo=repo)
+
+
+def get_cross_case_service(
+    db: Session = Depends(get_db),
+    case_access_service: CaseAccessService = Depends(get_case_access_service),
+    case_service: CaseService = Depends(get_case_service),
+    audit_service: AuditLedgerService = Depends(get_audit_service),
+    entity_resolution_service: EntityResolutionService = Depends(get_entity_resolution_service),
+) -> CrossCaseCorrelationService:
+    """Retrieve Cross-Case Correlation and Investigation Intelligence service."""
+    return CrossCaseCorrelationService(
+        cross_case_repo=CrossCaseRepository(db),
+        case_access_service=case_access_service,
+        case_service=case_service,
+        case_repo=CaseRepository(db),
+        document_repo=DocumentRepository(db),
+        evidence_repo=EvidenceRepository(db),
+        finding_repo=FindingRepository(db),
+        audit_service=audit_service,
+        entity_resolution_service=entity_resolution_service,
+    )
+
+
+def get_current_user(
+    request: Request,
+    auth_service: AuthenticationService = Depends(get_auth_service),
+) -> UserModel:
+    """Extract, verify, and authenticate user principal from Bearer header or session cookie."""
+    token: str | None = None
+    auth_header = request.headers.get("Authorization")
+
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    elif "access_token" in request.cookies:
+        token = request.cookies.get("access_token")
+
+    if not token:
+        raise AuthenticationException("Authentication required. Missing Bearer token or cookie.")
+
+    payload = auth_service.token_service.decode_access_token(token)
+    user = auth_service.repo.get_user_by_id(payload.sub)
+
+    if not user or not user.is_active:
+        raise AuthenticationException("User account not found or disabled.")
+
+    return user
+
+
+def require_case_access(
+    min_role: CaseRole = CaseRole.VIEWER, is_mutation: bool = False
+) -> Callable[..., CaseRole]:
+    """Dependency factory enforcing case-scoped RBAC and archived case restrictions."""
+
+    def _dependency(
+        case_id: str,
+        user: UserModel = Depends(get_current_user),
+        access_service: CaseAccessService = Depends(get_case_access_service),
+    ) -> CaseRole:
+        return access_service.check_case_access(
+            user=user,
+            case_id=case_id,
+            min_role=min_role,
+            is_mutation=is_mutation,
+        )
+
+    return _dependency

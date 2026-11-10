@@ -3,7 +3,12 @@
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from document_intelligence.api.dependencies import get_case_service, get_finding_repository
+from document_intelligence.api.dependencies import (
+    get_case_service,
+    get_finding_repository,
+    require_case_access,
+)
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.forensic_finding import ForensicFinding
 from document_intelligence.infrastructure.repositories.finding_repository import (
     FindingRepository,
@@ -27,6 +32,7 @@ async def list_findings(
     processing_run_id: str | None = Query(default=None, description="Filter by processing run ID"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     finding_repo: FindingRepository = Depends(get_finding_repository),
 ) -> FindingListResponse:

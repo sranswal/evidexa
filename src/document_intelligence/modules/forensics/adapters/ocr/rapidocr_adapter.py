@@ -8,6 +8,7 @@ token-level bounding boxes and uncalibrated probabilities.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,7 @@ from document_intelligence.domain.models.ocr import (
     TextBlock,
     TextLine,
     TextToken,
+    create_traceable_token,
 )
 from document_intelligence.infrastructure.storage.filesystem import FilesystemDocumentStorage
 from document_intelligence.infrastructure.storage.interface import DocumentStorageProtocol
@@ -66,6 +68,8 @@ class RapidOcrAdapter(ForensicAnalyzer):
         self.inter_op_num_threads = inter_op_num_threads
         self.renderer = DocumentPageRenderer(max_pages=max_pages, default_dpi=default_dpi)
         self._engine: Any = None
+        self._init_lock = threading.Lock()
+        self._inference_lock = threading.Lock()
 
     def _get_engine(
         self,
@@ -84,22 +88,24 @@ class RapidOcrAdapter(ForensicAnalyzer):
         )
 
         if self._engine is None:
-            try:
-                from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-untyped]
+            with self._init_lock:
+                if self._engine is None:
+                    try:
+                        from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-untyped]
 
-                kwargs: dict[str, Any] = {}
-                if intra_threads is not None:
-                    kwargs["intra_op_num_threads"] = intra_threads
-                if inter_threads is not None:
-                    kwargs["inter_op_num_threads"] = inter_threads
+                        kwargs: dict[str, Any] = {}
+                        if intra_threads is not None:
+                            kwargs["intra_op_num_threads"] = intra_threads
+                        if inter_threads is not None:
+                            kwargs["inter_op_num_threads"] = inter_threads
 
-                self._engine = RapidOCR(**kwargs)
-            except ImportError as exc:
-                raise RuntimeError(
-                    "rapidocr-onnxruntime is not installed. Install it via 'pip install rapidocr-onnxruntime'."
-                ) from exc
-            except Exception as exc:
-                raise RuntimeError(f"RapidOCR engine initialization failed: {exc}") from exc
+                        self._engine = RapidOCR(**kwargs)
+                    except ImportError as exc:
+                        raise RuntimeError(
+                            "rapidocr-onnxruntime is not installed. Install it via 'pip install rapidocr-onnxruntime'."
+                        ) from exc
+                    except Exception as exc:
+                        raise RuntimeError(f"RapidOCR engine initialization failed: {exc}") from exc
         return self._engine
 
     @property
@@ -422,8 +428,9 @@ class RapidOcrAdapter(ForensicAnalyzer):
         # Convert PIL image to numpy RGB array for RapidOCR
         img_arr = np.array(img)
 
-        # Run RapidOCR inference
-        result, elapse = engine(img_arr)
+        # Run RapidOCR inference (thread-safe)
+        with self._inference_lock:
+            result, elapse = engine(img_arr)
 
         if not result:
             return ExtractedPage(
@@ -471,9 +478,8 @@ class RapidOcrAdapter(ForensicAnalyzer):
                 coordinate_system=CoordinateSystem.NORMALIZED_0_1,
             )
 
-            token = TextToken(
+            token = create_traceable_token(
                 raw_text=text,
-                normalized_text=text.strip(),
                 bounding_box=token_box,
                 confidence=round(conf, 4),
                 reading_order_index=idx,

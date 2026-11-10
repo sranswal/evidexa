@@ -28,6 +28,8 @@ CLASS_PATTERNS: Final[dict[DocumentClass, list[tuple[str, float]]]] = {
         (r"\bvat\s+(?:reg|no|number)\b", 2.0),
         (r"\bunit\s+price\b", 1.5),
         (r"\bline\s+total\b", 1.5),
+        (r"(?:बीजक|चालान|बिल)", 3.0),
+        (r"(?:कर\s+चालान|कुल\s+राशि|देय\s+राशि)", 2.5),
     ],
     DocumentClass.RECEIPT: [
         (r"\b(?:sales\s+|cash\s+)?receipt\b", 3.0),
@@ -44,6 +46,7 @@ CLASS_PATTERNS: Final[dict[DocumentClass, list[tuple[str, float]]]] = {
         (r"\bcard\s*(?:ending|#)\b", 1.5),
         (r"\bauth\s*(?:code|#)\b", 1.5),
         (r"\bthank\s+you\s+for\s+(?:your\s+)?(?:shopping|visiting|business)\b", 2.0),
+        (r"(?:रसीद|पावती|भुगतान)", 3.0),
     ],
     DocumentClass.BANK_STATEMENT: [
         (r"\bbank\s+statement\b", 3.5),
@@ -65,6 +68,8 @@ CLASS_PATTERNS: Final[dict[DocumentClass, list[tuple[str, float]]]] = {
         (r"\bifsc\s*(?:code)?\b", 2.0),
         (r"\brouting\s+number\b", 2.0),
         (r"\bsort\s+code\b", 2.0),
+        (r"(?:बैंक\s+विवरण|खाता\s+विवरण)", 3.5),
+        (r"(?:प्रारंभिक\s+शेष|अंतिम\s+शेष)", 3.0),
     ],
     DocumentClass.IDENTITY_DOCUMENT: [
         (r"\bpassport\b", 3.5),

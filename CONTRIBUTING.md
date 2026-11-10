@@ -1,6 +1,6 @@
 # Contributing to EVIDEXA
 
-Thank you for your interest in contributing to **EVIDEXA** — AI-Powered Digital Forensics & Document Intelligence.
+Thank you for your interest in contributing to **EVIDEXA** - AI-Powered Digital Forensics & Document Intelligence.
 
 EVIDEXA is built with enterprise rigor, mathematical precision, and forensic defensibility. We welcome contributions that maintain these standards.
 
@@ -23,6 +23,7 @@ All contributions must adhere to our core architectural and product principles:
 
 ### Prerequisites
 - **Python:** 3.12 (64-bit)
+- **Node.js:** Node.js 18+ and npm (for frontend development)
 - Standard development tools (`git`, virtual environment managers)
 
 ### Setup Steps
@@ -37,7 +38,7 @@ python -m venv .venv
 .venv\Scripts\activate      # Windows PowerShell
 # source .venv/bin/activate  # Linux / macOS
 
-# 3. Install package in editable mode with development dependencies
+# 3. Install backend package in editable mode with development dependencies
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 
@@ -47,6 +48,12 @@ python -m pip install -e ".[dev]"
 
 # 5. Apply database migrations
 alembic upgrade head
+
+# 6. Setup and run frontend development server
+cd frontend
+npm install
+npm run dev                 # Starts Vite dev server on http://localhost:5173
+cd ..
 ```
 
 > [!NOTE]
@@ -81,6 +88,15 @@ Standardized formatting with 100-character line length limit. Auto-format with `
 python -m mypy src
 ```
 Strict typing with zero type warnings and `disallow_untyped_defs = true`.
+
+### 5. Frontend Verification & Production Build
+```powershell
+cd frontend
+npm test                    # Vitest component & client unit tests
+npm run build               # TypeScript check (tsc) and Vite production bundle
+cd ..
+```
+All frontend tests must pass and the production bundle must build cleanly without type errors.
 
 ---
 

@@ -87,6 +87,25 @@ class TestDocumentEndpoints:
         assert len(doc["sha256"]) == 64
         assert doc["file_size_bytes"] == len(synthetic_pdf)
 
+        # Verify get_document endpoint
+        get_res = client.get(f"/api/v1/cases/{case_id}/documents/{doc['id']}")
+        assert get_res.status_code == 200
+        get_doc = get_res.json()
+        assert get_doc["id"] == doc["id"]
+        assert get_doc["sha256"] == doc["sha256"]
+
+        # Verify download_document endpoint
+        dl_res = client.get(f"/api/v1/cases/{case_id}/documents/{doc['id']}/download")
+        assert dl_res.status_code == 200
+        assert dl_res.content == synthetic_pdf
+        assert "bank_statement.pdf" in dl_res.headers.get("content-disposition", "")
+
+        # Verify artifact retrieval (missing artifact returns 404)
+        art_res = client.get(
+            f"/api/v1/cases/{case_id}/documents/{doc['id']}/artifacts/run-123/nonexistent.png"
+        )
+        assert art_res.status_code == 404
+
     def test_magic_byte_mismatch_rejected(self, client: TestClient) -> None:
         case_res = client.post("/api/v1/cases", json={"title": "Tampered Upload Case"})
         case_id = case_res.json()["id"]

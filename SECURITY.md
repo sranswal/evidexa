@@ -1,6 +1,6 @@
 # EVIDEXA Security Policy
 
-**Platform:** EVIDEXA — AI-Powered Digital Forensics & Document Intelligence  
+**Platform:** EVIDEXA - AI-Powered Digital Forensics & Document Intelligence  
 **Repository:** [https://github.com/shubhamranswal/evidexa](https://github.com/shubhamranswal/evidexa)
 
 ---

@@ -23,6 +23,7 @@ class Case(BaseModel):
     """Case aggregate root representing a forensic investigation workspace."""
 
     id: str = Field(default_factory=generate_id)
+    organization_id: str | None = Field(default=None)
     case_reference: str = Field(default_factory=generate_case_reference)
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=4000)

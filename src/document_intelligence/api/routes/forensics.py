@@ -11,8 +11,10 @@ from document_intelligence.api.dependencies import (
     get_evidence_repository,
     get_forensic_processing_service,
     get_processing_run_repository,
+    require_case_access,
 )
 from document_intelligence.core.exceptions import NotFoundException
+from document_intelligence.domain.models.auth import CaseRole
 from document_intelligence.domain.models.evidence_node import EvidenceNode
 from document_intelligence.domain.models.forensic_finding import ForensicFinding
 from document_intelligence.domain.models.processing_run import ProcessingRun
@@ -80,6 +82,7 @@ class EvidenceListResponse(BaseModel):
 @router.get("/analyzers", response_model=list[AnalyzerInfo])
 async def list_analyzers(
     case_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     registry: AnalyzerRegistry = Depends(get_analyzer_registry),
 ) -> list[AnalyzerInfo]:
@@ -104,6 +107,7 @@ async def analyze_document(
     case_id: str,
     document_id: str,
     request: AnalyzeDocumentRequest | None = None,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.INVESTIGATOR, is_mutation=True)),
     service: ForensicProcessingService = Depends(get_forensic_processing_service),
 ) -> AnalyzeDocumentResponse:
     """Execute forensic analysis on a stored document.
@@ -127,6 +131,7 @@ async def list_processing_runs(
     document_id: str | None = Query(default=None, description="Filter by document ID"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
 ) -> ProcessingRunListResponse:
@@ -145,6 +150,7 @@ async def list_processing_runs(
 async def get_processing_run(
     case_id: str,
     run_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     run_repo: ProcessingRunRepository = Depends(get_processing_run_repository),
 ) -> ProcessingRun:
@@ -167,6 +173,7 @@ async def list_evidence(
     evidence_type: str | None = Query(default=None, description="Filter by evidence type"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     evidence_repo: EvidenceRepository = Depends(get_evidence_repository),
 ) -> EvidenceListResponse:
@@ -187,6 +194,7 @@ async def list_evidence(
 async def get_evidence(
     case_id: str,
     evidence_id: str,
+    _: CaseRole = Depends(require_case_access(min_role=CaseRole.VIEWER)),
     case_service: CaseService = Depends(get_case_service),
     evidence_repo: EvidenceRepository = Depends(get_evidence_repository),
 ) -> EvidenceNode:

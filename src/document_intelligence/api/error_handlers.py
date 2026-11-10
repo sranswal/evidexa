@@ -5,8 +5,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from document_intelligence.core.exceptions import (
+    AuthenticationException,
     ConflictException,
     EntityNotFoundException,
+    ForbiddenException,
+    RateLimitException,
     SecurityException,
     StorageException,
     ValidationException,
@@ -60,6 +63,33 @@ async def security_handler(request: Request, exc: SecurityException) -> JSONResp
     logger.warning("Security violation: %s - %s", exc.message, exc.details)
     return make_error_response(
         status_code=status.HTTP_400_BAD_REQUEST,
+        code=exc.code,
+        message=exc.message,
+        details=exc.details,
+    )
+
+
+async def authentication_handler(request: Request, exc: AuthenticationException) -> JSONResponse:
+    return make_error_response(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        code=exc.code,
+        message=exc.message,
+        details=exc.details,
+    )
+
+
+async def forbidden_handler(request: Request, exc: ForbiddenException) -> JSONResponse:
+    return make_error_response(
+        status_code=status.HTTP_403_FORBIDDEN,
+        code=exc.code,
+        message=exc.message,
+        details=exc.details,
+    )
+
+
+async def rate_limit_handler(request: Request, exc: RateLimitException) -> JSONResponse:
+    return make_error_response(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         code=exc.code,
         message=exc.message,
         details=exc.details,

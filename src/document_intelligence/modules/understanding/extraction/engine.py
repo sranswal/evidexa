@@ -57,11 +57,25 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
             1.0,
         ),
         (re.compile(r"\b(INV-[0-9A-Za-z\-_/]+)\b", re.IGNORECASE), 0.95),
+        (
+            re.compile(
+                r"(?:बीजक\s*(?:संख्या|क्रमांक|नं|क्र)|चालान\s*(?:संख्या|क्रमांक|नं))[:\s]*([A-Za-z0-9\-_/]+)",
+                re.IGNORECASE,
+            ),
+            1.0,
+        ),
     ],
     "invoice_date": [
         (
             re.compile(
                 r"(?:invoice\s*date|date\s*of\s*issue|issue\s*date)[:\s]*([0-9A-Za-z\s,\.\-/]+?)(?:\s*(?:due|terms|po|client|$|\n))",
+                re.IGNORECASE,
+            ),
+            1.0,
+        ),
+        (
+            re.compile(
+                r"(?:बीजक\s*दिनांक|चालान\s*तारीख|दिनांक|तारीख)[:\s]*([0-9A-Za-z\s,\.\-/]+?)(?:\s*(?:देय|ग्राहक|$|\n))",
                 re.IGNORECASE,
             ),
             1.0,
@@ -84,18 +98,30 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         ),
         (
             re.compile(
+                r"(?:देय\s*तारीख|अंतिम\s*तिथि)[:\s]*([0-9A-Za-z\s,\.\-/]+?)(?:\s*(?:शर्तें|$|\n))",
+                re.IGNORECASE,
+            ),
+            1.0,
+        ),
+        (
+            re.compile(
                 r"(?:pay\s*by)[:\s]*([0-9A-Za-z\s,\.\-/]+?)(?:\s*(?:terms|$|\n))", re.IGNORECASE
             ),
             0.8,
         ),
     ],
     "supplier_name": [
-        (re.compile(r"(?:from|vendor|supplier|issued\s*by)[:\s]*([^\n\r]+)", re.IGNORECASE), 0.8),
+        (
+            re.compile(
+                r"(?:from|vendor|supplier|issued\s*by|विक्रेता|प्रदाता)[:\s]*([^\n\r]+)", re.IGNORECASE
+            ),
+            0.8,
+        ),
     ],
     "supplier_tax_id": [
         (
             re.compile(
-                r"(?:gstin|vat\s*(?:no|reg|number)?|tin|tax\s*id)[:\s]*([A-Za-z0-9\-_/]+)",
+                r"(?:gstin|vat\s*(?:no|reg|number)?|tin|tax\s*id|जीएसटीआईएन|कर\s*आईडी)[:\s]*([A-Za-z0-9\-_/]+)",
                 re.IGNORECASE,
             ),
             1.0,
@@ -103,14 +129,16 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
     ],
     "buyer_name": [
         (
-            re.compile(r"(?:bill\s*to|sold\s*to|client|customer)[:\s]*([^\n\r]+)", re.IGNORECASE),
+            re.compile(
+                r"(?:bill\s*to|sold\s*to|client|customer|क्रेता|ग्राहक)[:\s]*([^\n\r]+)", re.IGNORECASE
+            ),
             0.9,
         ),
     ],
     "buyer_tax_id": [
         (
             re.compile(
-                r"(?:buyer\s*(?:tax\s*id|gstin|vat)|client\s*(?:gstin|vat))[:\s]*([A-Za-z0-9\-_/]+)",
+                r"(?:buyer\s*(?:tax\s*id|gstin|vat)|client\s*(?:gstin|vat)|ग्राहक\s*जीएसटीआईएन)[:\s]*([A-Za-z0-9\-_/]+)",
                 re.IGNORECASE,
             ),
             1.0,
@@ -119,7 +147,7 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
     "subtotal": [
         (
             re.compile(
-                r"(?:subtotal|sub-total|net\s*amount)[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
+                r"(?:subtotal|sub-total|net\s*amount|उप-कुल|उपकुल|मूल\s*राशि)[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
                 re.IGNORECASE,
             ),
             1.0,
@@ -128,7 +156,7 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
     "tax_amount": [
         (
             re.compile(
-                r"(?:tax|vat|gst|sales\s*tax)(?:\s*amount)?[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
+                r"(?:tax|vat|gst|sales\s*tax|कर\s*राशि|जीएसटी)(?:\s*amount)?[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
                 re.IGNORECASE,
             ),
             0.9,
@@ -137,7 +165,7 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
     "total_amount": [
         (
             re.compile(
-                r"(?:total\s*amount(?:\s*due)?|amount\s*due|grand\s*total|balance\s*due)[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
+                r"(?:total\s*amount(?:\s*due)?|amount\s*due|grand\s*total|balance\s*due|कुल\s*राशि|देय\s*राशि|सकल\s*राशि)[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)",
                 re.IGNORECASE,
             ),
             1.0,
@@ -145,7 +173,7 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         (re.compile(r"(?:^|\n)\s*total[:\s]*([$€£₹\w\s]*[0-9]+[0-9,\.\s]*)", re.IGNORECASE), 0.8),
     ],
     "currency": [
-        (re.compile(r"([$€£¥₹]|USD|EUR|GBP|INR|CAD|AUD)", re.IGNORECASE), 0.8),
+        (re.compile(r"([$€£¥₹]|USD|EUR|GBP|INR|CAD|AUD|रुपये|रु)", re.IGNORECASE), 0.8),
     ],
     # Receipt fields
     "merchant_name": [
@@ -196,12 +224,18 @@ FIELD_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
     "account_number_masked": [
         (
             re.compile(
-                r"(?:account\s*(?:number|num|no|#)|a/c\s*(?:no|num|number|#)?)[:\s]*([A-Za-z0-9\-_/\*X ]{4,30})",
+                r"(?:account\s*(?:number|num|no|#)|a/c\s*(?:no|num|number|#)?|खाता\s*(?:संख्या|सं|क्रमांक)?)[:\s]*([A-Za-z0-9\u0966-\u096F\-_/\*X ]{4,30})",
                 re.IGNORECASE,
             ),
             1.0,
         ),
-        (re.compile(r"\b(?:A/C|ACC)[:\s]*([A-Za-z0-9\-_/\*X ]{4,30})", re.IGNORECASE), 0.9),
+        (
+            re.compile(
+                r"\b(?:A/C|ACC)[:\s]*([A-Za-z0-9\u0966-\u096F\-_/\*X ]{4,30})",
+                re.IGNORECASE,
+            ),
+            0.9,
+        ),
     ],
     "statement_period_start": [
         (
@@ -324,41 +358,48 @@ class StructuredFieldExtractor:
         )
 
         for page in pages_to_scan:
-            text_to_scan = page.raw_text
+            texts_to_scan = [page.raw_text]
+            if page.normalized_text and page.normalized_text != page.raw_text:
+                texts_to_scan.append(page.normalized_text)
 
-            for regex, score_weight in patterns:
-                for match in regex.finditer(text_to_scan):
-                    raw_val = match.group(1).strip()
-                    if not raw_val:
-                        continue
+            seen_raw_vals: set[str] = set()
+            for text_to_scan in texts_to_scan:
+                for regex, score_weight in patterns:
+                    for match in regex.finditer(text_to_scan):
+                        raw_val = match.group(1).strip()
+                        if not raw_val or raw_val in seen_raw_vals:
+                            continue
+                        seen_raw_vals.add(raw_val)
 
-                    # Validate and normalize using full document context
-                    norm_val, warnings = self._normalize_value(
-                        raw_val, field_def.data_type, document_context=extracted_doc.full_raw_text
-                    )
-                    if norm_val is None and field_def.data_type != FieldDataType.STRING:
-                        continue
+                        # Validate and normalize using full document context
+                        norm_val, warnings = self._normalize_value(
+                            raw_val,
+                            field_def.data_type,
+                            document_context=extracted_doc.full_raw_text,
+                        )
+                        if norm_val is None and field_def.data_type != FieldDataType.STRING:
+                            continue
 
-                    # Find source bounding boxes and tokens on this page
-                    boxes, token_ids = self._locate_tokens_and_boxes(page, raw_val)
+                        # Find source bounding boxes and tokens on this page
+                        boxes, token_ids = self._locate_tokens_and_boxes(page, raw_val)
 
-                    # Privacy invariant: Sensitive masked strings must NEVER be stored unmasked in candidates
-                    safe_raw = (
-                        mask_sensitive_account_number(raw_val)
-                        if field_def.data_type == FieldDataType.MASKED_STRING
-                        else raw_val
-                    )
+                        # Privacy invariant: Sensitive masked strings must NEVER be stored unmasked in candidates
+                        safe_raw = (
+                            mask_sensitive_account_number(raw_val)
+                            if field_def.data_type == FieldDataType.MASKED_STRING
+                            else raw_val
+                        )
 
-                    cand = CandidateValue(
-                        raw_text=safe_raw,
-                        normalized_value=norm_val if norm_val is not None else safe_raw,
-                        score=score_weight,
-                        page_number=page.page_number,
-                        bounding_box=boxes[0] if boxes else None,
-                        token_ids=token_ids,
-                        data_type=field_def.data_type,
-                    )
-                    candidates.append(cand)
+                        cand = CandidateValue(
+                            raw_text=safe_raw,
+                            normalized_value=norm_val if norm_val is not None else safe_raw,
+                            score=score_weight,
+                            page_number=page.page_number,
+                            bounding_box=boxes[0] if boxes else None,
+                            token_ids=token_ids,
+                            data_type=field_def.data_type,
+                        )
+                        candidates.append(cand)
 
         # Fallback heuristic for supplier / merchant name from first lines
         if not candidates and field_def.field_key in {
@@ -457,7 +498,10 @@ class StructuredFieldExtractor:
             if not token.raw_text:
                 continue
             token_lower = token.raw_text.lower().strip(",.:;-#")
-            if token_lower in tokens_text_lower:
+            token_norm_lower = (token.normalized_text or "").lower().strip(",.:;-#")
+            if token_lower in tokens_text_lower or (
+                token_norm_lower and token_norm_lower in tokens_text_lower
+            ):
                 matched_tokens.append(token)
 
         if not matched_tokens:

@@ -130,6 +130,17 @@ docs/PROCESSING_LIFECYCLE.md
 docs/THREAT_MODEL.md
 docs/IMPLEMENTATION_STATUS.md
 docs/FORENSIC_ADAPTER_ARCHITECTURE.md
+research/
+
+# ------------------------------------------------------------------------------
+# Node & Frontend
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+.npm/
 
 # ------------------------------------------------------------------------------
 # Logs & Diagnostic Outputs

@@ -1,5 +1,16 @@
 """Domain model exports."""
 
+from document_intelligence.domain.models.aggregated_finding import (
+    AggregatedFinding,
+    AggregatedFindingReview,
+)
+from document_intelligence.domain.models.assistant import (
+    AssistantMessage,
+    AssistantQueryRequest,
+    AssistantQueryResponse,
+    EvidenceCitation,
+    RetrievedCaseContext,
+)
 from document_intelligence.domain.models.audit_event import (
     AuditCheckpoint,
     AuditEvent,
@@ -12,6 +23,24 @@ from document_intelligence.domain.models.classification import (
     ClassificationOverride,
     DocumentClassificationResult,
     PageClassification,
+)
+from document_intelligence.domain.models.consistency import (
+    ConsistencyAnalysisResult,
+    ConsistencyAnalysisRun,
+    ConsistencyCheck,
+    ConsistencyComparison,
+    ConsistencyEvidence,
+    ConsistencyEvidenceLocation,
+    ConsistencyFinding,
+    ConsistencyReview,
+    ConsistencyRule,
+)
+from document_intelligence.domain.models.cross_case import (
+    CrossCaseCandidateMatch,
+    CrossCaseCorrelationResult,
+    CrossCaseMatchEvidence,
+    CrossCaseMatchReview,
+    CrossCaseScope,
 )
 from document_intelligence.domain.models.document import Document
 from document_intelligence.domain.models.entity_resolution import (
@@ -32,13 +61,29 @@ from document_intelligence.domain.models.extraction import (
     FieldDefinition,
 )
 from document_intelligence.domain.models.forensic_finding import ForensicFinding
-from document_intelligence.domain.models.investigation_dossier import InvestigationDossier
+from document_intelligence.domain.models.graph import (
+    GraphEdge,
+    GraphNeighborhoodResult,
+    GraphNode,
+    GraphPath,
+    GraphPathsResult,
+    GraphSnapshot,
+    deterministic_edge_id,
+    deterministic_node_id,
+)
+from document_intelligence.domain.models.investigation_dossier import (
+    DossierFinding,
+    DossierSection,
+    InvestigationDossier,
+)
 from document_intelligence.domain.models.ocr import (
+    AlternativeExtractionObservation,
     ExtractedDocumentText,
     ExtractedPage,
     ExtractedTable,
     ExtractedTableCell,
     LayoutRegion,
+    ObservationDisagreement,
     OcrEngineMetadata,
     TextBlock,
     TextLine,
@@ -78,6 +123,8 @@ __all__ = [
     "LayoutRegion",
     "ExtractedPage",
     "ExtractedDocumentText",
+    "AlternativeExtractionObservation",
+    "ObservationDisagreement",
     "ClassificationCandidate",
     "PageClassification",
     "ClassificationOverride",
@@ -101,4 +148,35 @@ __all__ = [
     "RelationshipCandidate",
     "RelationshipDetectionRun",
     "RelationshipDetectionResult",
+    "ConsistencyComparison",
+    "ConsistencyEvidenceLocation",
+    "ConsistencyEvidence",
+    "ConsistencyReview",
+    "ConsistencyFinding",
+    "ConsistencyCheck",
+    "ConsistencyRule",
+    "ConsistencyAnalysisRun",
+    "ConsistencyAnalysisResult",
+    "CrossCaseScope",
+    "CrossCaseMatchEvidence",
+    "CrossCaseMatchReview",
+    "CrossCaseCandidateMatch",
+    "CrossCaseCorrelationResult",
+    "AggregatedFinding",
+    "AggregatedFindingReview",
+    "EvidenceCitation",
+    "AssistantMessage",
+    "AssistantQueryRequest",
+    "AssistantQueryResponse",
+    "RetrievedCaseContext",
+    "DossierSection",
+    "DossierFinding",
+    "GraphNode",
+    "GraphEdge",
+    "GraphPath",
+    "GraphSnapshot",
+    "GraphNeighborhoodResult",
+    "GraphPathsResult",
+    "deterministic_node_id",
+    "deterministic_edge_id",
 ]
