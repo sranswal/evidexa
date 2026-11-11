@@ -49,10 +49,7 @@ export const Sidebar: React.FC = () => {
             </NavLink>
             <NavLink to="/cross-case" className={navLinkClass}>
               <Network className="w-4 h-4 text-slate-400 group-hover:text-evidexa-cyan transition-colors" />
-              <span className="flex-1">Cross-Case Intel</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                4C
-              </span>
+              <span>Cross-Case Intel</span>
             </NavLink>
           </nav>
         </div>
@@ -109,18 +106,12 @@ export const Sidebar: React.FC = () => {
 
               <NavLink to={`/cases/${activeCaseId}/assistant`} className={navLinkClass}>
                 <Bot className="w-4 h-4 text-slate-400 group-hover:text-evidexa-cyan transition-colors" />
-                <span className="flex-1">AI Assistant</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                  4A
-                </span>
+                <span>AI Assistant</span>
               </NavLink>
 
               <NavLink to={`/cases/${activeCaseId}/dossiers`} className={navLinkClass}>
                 <FileCheck2 className="w-4 h-4 text-slate-400 group-hover:text-evidexa-cyan transition-colors" />
-                <span className="flex-1">Dossiers</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                  3E
-                </span>
+                <span>Dossiers</span>
               </NavLink>
             </nav>
           </div>

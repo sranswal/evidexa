@@ -30,6 +30,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [investigatorId, setInvestigatorId] = useState("lead-investigator");
+  const [autoRunOcr, setAutoRunOcr] = useState(true);
+  const [selectedPipeline, setSelectedPipeline] = useState<"hybrid-ocr-pipeline" | "ppocrv5-devanagari-engine">("hybrid-ocr-pipeline");
+  const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -38,6 +41,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setSelectedFile(null);
     setErrorMsg(null);
     setIsUploading(false);
+    setUploadStage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -112,6 +116,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
 
     setIsUploading(true);
+    setUploadStage("Uploading & hashing file...");
     setErrorMsg(null);
 
     try {
@@ -120,6 +125,16 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         selectedFile,
         investigatorId.trim() || undefined
       );
+
+      if (autoRunOcr) {
+        setUploadStage("Running Forensic OCR Pipeline...");
+        try {
+          await documentsApi.startOcr(caseId, doc.id, selectedPipeline);
+        } catch (ocrErr: any) {
+          console.warn("Auto-OCR pipeline notice:", ocrErr);
+        }
+      }
+
       resetState();
       onUploadSuccess(doc);
       onClose();
@@ -127,6 +142,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setErrorMsg(err.message || "Failed to upload and ingest evidence file.");
     } finally {
       setIsUploading(false);
+      setUploadStage(null);
     }
   };
 
@@ -222,6 +238,32 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           </p>
         </div>
 
+        {/* Automatic OCR Processing Options */}
+        <div className="p-3 bg-evidexa-midnight/80 rounded border border-evidexa-slate space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200">
+            <input
+              type="checkbox"
+              checked={autoRunOcr}
+              onChange={(e) => setAutoRunOcr(e.target.checked)}
+              className="rounded border-evidexa-slate text-evidexa-cyan focus:ring-0"
+            />
+            <span className="font-semibold text-white">Execute Forensic OCR Pipeline automatically upon upload</span>
+          </label>
+          {autoRunOcr && (
+            <div className="pl-6 flex items-center gap-2 text-xs">
+              <span className="text-slate-400">Engine:</span>
+              <select
+                value={selectedPipeline}
+                onChange={(e: any) => setSelectedPipeline(e.target.value)}
+                className="bg-evidexa-charcoal border border-evidexa-slate rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:border-evidexa-cyan"
+              >
+                <option value="hybrid-ocr-pipeline">Hybrid OCR (English, Latin, Numbers, Standard Invoices)</option>
+                <option value="ppocrv5-devanagari-engine">PP-OCRv5 Devanagari (Hindi, Sanskrit, Regional Indian Bills)</option>
+              </select>
+            </div>
+          )}
+        </div>
+
         {/* Forensic Policy Disclaimer */}
         <div className="p-3 bg-evidexa-midnight/80 rounded border border-evidexa-slate/60 flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -241,7 +283,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             isLoading={isUploading}
             disabled={!selectedFile || isUploading}
           >
-            Ingest & Verify Document
+            {uploadStage || "Ingest & Process Document"}
           </Button>
         </div>
       </form>

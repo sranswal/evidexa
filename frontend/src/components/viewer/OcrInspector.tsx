@@ -13,6 +13,8 @@ import {
   Eye,
   EyeOff,
   GitCompare,
+  Play,
+  Loader2,
 } from 'lucide-react';
 import type { ExtractedDocumentText, TextToken, ObservationDisagreement } from '../../types/api';
 import { formatBoxLabel } from '../../utils/coordinates';
@@ -23,6 +25,8 @@ interface OcrInspectorProps {
   selectedTokenId?: string | null;
   onSelectToken: (token: TextToken | null) => void;
   onNavigateToPage?: (page: number) => void;
+  onRunOcr?: (analyzerId: string) => void;
+  isOcrRunning?: boolean;
 }
 
 export const OcrInspector: React.FC<OcrInspectorProps> = ({
@@ -31,6 +35,8 @@ export const OcrInspector: React.FC<OcrInspectorProps> = ({
   selectedTokenId,
   onSelectToken,
   onNavigateToPage,
+  onRunOcr,
+  isOcrRunning = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'tokens' | 'lines' | 'raw'>('lines');
@@ -225,12 +231,34 @@ export const OcrInspector: React.FC<OcrInspectorProps> = ({
 
   if (!ocrData) {
     return (
-      <div className="p-6 text-center text-slate-400">
-        <FileText className="w-10 h-10 mx-auto mb-3 text-brand-slate-light opacity-50" />
-        <h4 className="text-sm font-semibold text-white mb-1">No OCR Data Available</h4>
-        <p className="text-xs text-slate-400 max-w-xs mx-auto">
-          OCR has not been executed on this document yet. Run the OCR pipeline from Processing Controls to inspect extracted text.
-        </p>
+      <div className="p-6 text-center text-slate-400 space-y-4">
+        <FileText className="w-10 h-10 mx-auto text-brand-slate-light opacity-50" />
+        <div>
+          <h4 className="text-sm font-semibold text-white mb-1">No OCR Data Available</h4>
+          <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+            Optical Character Recognition and Document Understanding have not been executed on this document yet.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 pt-2 max-w-xs mx-auto">
+          <button
+            type="button"
+            onClick={() => onRunOcr && onRunOcr('hybrid-ocr-pipeline')}
+            disabled={isOcrRunning}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-evidexa-cyan hover:bg-evidexa-aqua text-black font-semibold text-xs shadow-glow transition-all disabled:opacity-50"
+          >
+            {isOcrRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            <span>Run Hybrid OCR Pipeline</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onRunOcr && onRunOcr('ppocrv5-devanagari-engine')}
+            disabled={isOcrRunning}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-brand-charcoal hover:bg-slate-800 text-slate-200 border border-brand-slate text-xs transition-all disabled:opacity-50"
+          >
+            <Languages className="w-3.5 h-3.5 text-brand-cyan" />
+            <span>Run PP-OCRv5 Devanagari (Hindi)</span>
+          </button>
+        </div>
       </div>
     );
   }

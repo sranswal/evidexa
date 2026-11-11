@@ -113,6 +113,7 @@ upstream/**
 experiments/
 research/
 archive/
+submission/
 *-engineering-archive/
 .system_generated/
 _backup*/
@@ -124,6 +125,7 @@ docs/PHASE_*.md
 docs/*_REPORT.md
 docs/REPOSITORY_CURATORIAL_CLEANUP_REPORT.md
 docs/FINAL_PUBLIC_REPOSITORY_PREFLIGHT_REPORT.md
+docs/EVIDEXA_VIDEO_PRODUCTION_*.md
 docs/DECISIONS.md
 docs/PDF_STRUCTURAL_ANALYSIS.md
 docs/PROCESSING_LIFECYCLE.md
@@ -131,6 +133,14 @@ docs/THREAT_MODEL.md
 docs/IMPLEMENTATION_STATUS.md
 docs/FORENSIC_ADAPTER_ARCHITECTURE.md
 research/
+
+# Temporary test & screenshot capture scripts
+scripts/capture_*.py
+scripts/verify_*.py
+scripts/check_*.py
+scripts/test_*.py
+scripts/refine_*.py
+scripts/debug_*.py
 
 # ------------------------------------------------------------------------------
 # Node & Frontend

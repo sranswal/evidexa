@@ -15,7 +15,7 @@ import { EvidenceGraphPage } from "./pages/EvidenceGraphPage";
 import { FindingsWorkbenchPage } from "./pages/FindingsWorkbenchPage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { CrossCasePage } from "./pages/CrossCasePage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { DossiersPage } from "./pages/DossiersPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,7 +61,7 @@ export const App: React.FC = () => {
               <Route path="/cross-case" element={<CrossCasePage />} />
               <Route
                 path="/cases/:caseId/dossiers"
-                element={<PlaceholderPage moduleKey="dossiers" />}
+                element={<DossiersPage />}
               />
               <Route path="*" element={<Navigate to="/cases" replace />} />
             </Route>

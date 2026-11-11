@@ -32,7 +32,7 @@
 </div>
 
 > [!NOTE]
-> **Development Status:** EVIDEXA is currently under active pre-release engineering (`v0.1.0-alpha`). Core structural PDF forensics, visual tampering detection, hybrid OCR routing, entity resolution, and relationship ontologies are implemented and verified. The interactive visual investigation workspace and automated dossier export rendering are currently in active development. See [Development Status](docs/DEVELOPMENT_STATUS.md) and [Feature Matrix](docs/FEATURES.md) for granular readiness details.
+> **Development Status:** EVIDEXA is currently under active pre-release engineering (`v0.1.0-alpha`). Core structural PDF forensics, visual tampering detection, hybrid bilingual (Hindi/English) OCR routing, entity resolution, relationship ontologies, the interactive visual investigation workspace, and tamper-evident dossier export are implemented and verified with **596 backend tests** and **105 frontend tests** passing. See [Development Status](docs/DEVELOPMENT_STATUS.md) and [Feature Matrix](docs/FEATURES.md) for granular readiness details.
 
 ---
 
@@ -109,6 +109,42 @@ EVIDEXA is built around five integrated capability pillars:
 - **Single-Case Security Isolation:** Enforces strict boundary controls where all queries and operations are scoped to a case; unauthorized cross-case access attempts trigger 404 security barriers.
 - **Human-in-the-Loop Review:** Provides structured review interfaces for matching entities and confirming candidate relationships with mandatory written audit justifications.
 - **Court-Defensible Dossiers:** Compiles structured investigation dossiers featuring verified findings, visual forensic exhibits, supporting evidence, and complete chain-of-custody logs.
+
+---
+
+## Platform Visual Walkthrough
+
+EVIDEXA delivers a cohesive, dark-themed digital forensic workstation built for fraud examiners, corporate compliance auditors, and digital investigators:
+
+### 1. Multilingual Document Intelligence & Token Extraction
+Dual-pane workspace pairing rendered PDF/scanned originals with deep neural OCR token streams, spatial bounding boxes, and structured invoice field parsing (supporting English and Devanagari/Hindi scripts).
+<p align="center">
+  <img src="assets/screenshots/01_document_intelligence.png" alt="Document Intelligence Dual-Pane Workspace" width="100%" style="border-radius: 8px; border: 1px solid #27272a;" />
+</p>
+
+### 2. Discrepancy Reconciliation & Forensic Findings Workbench
+Reconciles multi-document financial records (invoices, challans, and bank wires) to flag settlement variances, accompanied by deterministic rule provenance and signed investigator review logs.
+<p align="center">
+  <img src="assets/screenshots/02_visual_forensics.png" alt="Forensic Findings Workbench & Discrepancy Reconciliation" width="100%" style="border-radius: 8px; border: 1px solid #27272a;" />
+</p>
+
+### 3. Interactive Evidence Graph & Multi-Entity Topology
+Force-directed knowledge graph projecting typed semantic predicates (`CONTAINS_DOCUMENT`, `TRANSFERS_TO`, `REPRESENTS`, `HAS_EVIDENCE`) across corporate entities, directors, accounts, and discrepancies.
+<p align="center">
+  <img src="assets/screenshots/03_evidence_graph.png" alt="Interactive Evidence Graph" width="100%" style="border-radius: 8px; border: 1px solid #27272a;" />
+</p>
+
+### 4. Cross-Case Correlation & Ring Intelligence
+Multi-case correlation within tenant-isolated scopes identifying recurring clearing accounts, common controlling principals, and phoenix company patterns across discrete legal proceedings.
+<p align="center">
+  <img src="assets/screenshots/04_cross_case_correlation.png" alt="Cross-Case Investigation Intelligence" width="100%" style="border-radius: 8px; border: 1px solid #27272a;" />
+</p>
+
+### 5. Cryptographic Evidence Dossier Workbench
+Automated multi-section dossier compilation with section-level tamper verification, immutable audit event chaining, and SHA-256 cryptographic sealing for court and compliance reporting.
+<p align="center">
+  <img src="assets/screenshots/05_dossier_workbench.png" alt="Evidence Dossier Workbench & Cryptographic Sealing" width="100%" style="border-radius: 8px; border: 1px solid #27272a;" />
+</p>
 
 ---
 
@@ -228,6 +264,8 @@ EVIDEXA is built on seven inviolable operational principles:
 
 ### Installation
 
+Using `uv` (recommended for ultra-fast setup) or standard Python `venv`:
+
 ```powershell
 # 1. Clone repository
 git clone https://github.com/shubhamranswal/evidexa.git
@@ -241,6 +279,7 @@ python -m venv .venv
 # 3. Install in editable mode with development dependencies
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+# Or via uv: uv pip install -e ".[dev]"
 
 # 4. Optional: Configure local environment settings
 # copy .env.example .env    # Windows
@@ -250,8 +289,18 @@ python -m pip install -e ".[dev]"
 alembic upgrade head
 
 # 6. Bootstrap local development administrator account (Argon2id hashed)
-python scripts/bootstrap_dev_user.py --email examiner@evidexa.local --username examiner --password "Investigator#2026" --full-name "Lead Examiner Sarah Vance"
+python scripts/bootstrap_dev_user.py --email examiner@evidexa.local --username examiner --password "Investigator2026!" --full-name "Lead Examiner Sarah Vance"
+
+# 7. (Optional) Populate complete demonstration investigation dataset
+# Seeds Operation Northern Star (bilingual OCR docs, graph entities, 10 reviewed findings, and sealed dossier)
+python scripts/seed_demo_investigation.py
 ```
+
+### Default Demonstration Credentials
+
+| Role | Username | Email | Default Password |
+|---|---|---|---|
+| **Lead Forensic Examiner** | `examiner` | `examiner@evidexa.local` | `Investigator2026!` |
 
 > [!NOTE]
 > **Pretrained Model Assets:** Optical character recognition utilizes lightweight RapidOCR ONNX models (`ch_PP-OCRv4_det_infer.onnx`, `ch_PP-OCRv4_rec_infer.onnx`, `ch_ppocr_mobile_v2.0_cls_infer.onnx`) and the PP-OCRv5 Devanagari recognition model for bilingual Hindi/English documentation. These Apache-2.0 models run 100% on CPU without requiring external cloud tokens or GPU hardware.

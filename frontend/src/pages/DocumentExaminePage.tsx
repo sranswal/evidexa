@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronLeft,
   Download,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   SidebarClose,
   SidebarOpen,
+  Play,
 } from 'lucide-react';
 import { documentsApi } from '../api/documents';
 import { casesApi } from '../api/cases';
@@ -27,6 +28,7 @@ import type { TextToken, EvidenceNode } from '../types/api';
 
 export const DocumentExaminePage: React.FC = () => {
   const { caseId, documentId } = useParams<{ caseId: string; documentId: string }>();
+  const queryClient = useQueryClient();
 
   // State
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -45,6 +47,20 @@ export const DocumentExaminePage: React.FC = () => {
   const [thumbnailsCollapsed, setThumbnailsCollapsed] = useState<boolean>(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(false);
   const [copiedHash, setCopiedHash] = useState<boolean>(false);
+  const [selectedEngine, setSelectedEngine] = useState<string>("hybrid-ocr-pipeline");
+
+  // Mutation to run OCR
+  const runOcrMutation = useMutation({
+    mutationFn: (analyzerId: string) => documentsApi.startOcr(caseId!, documentId!, analyzerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ocr', caseId, documentId] });
+      queryClient.invalidateQueries({ queryKey: ['extraction', caseId, documentId] });
+      queryClient.invalidateQueries({ queryKey: ['findings', caseId, documentId] });
+      queryClient.invalidateQueries({ queryKey: ['evidence', caseId, documentId] });
+      queryClient.invalidateQueries({ queryKey: ['runs', caseId, documentId] });
+      queryClient.invalidateQueries({ queryKey: ['document', caseId, documentId] });
+    },
+  });
 
   // Queries
   const { data: document, isLoading: docLoading, error: docError } = useQuery({
@@ -215,6 +231,32 @@ export const DocumentExaminePage: React.FC = () => {
             {copiedHash ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
           </button>
 
+          {/* Run OCR Pipeline Controls */}
+          <div className="flex items-center gap-1 bg-brand-midnight border border-brand-slate rounded p-0.5 text-xs">
+            <select
+              value={selectedEngine}
+              onChange={(e) => setSelectedEngine(e.target.value)}
+              className="bg-transparent text-slate-200 font-mono text-[11px] px-1 focus:outline-none cursor-pointer"
+            >
+              <option value="hybrid-ocr-pipeline" className="bg-evidexa-charcoal text-white">Hybrid OCR</option>
+              <option value="ppocrv5-devanagari-engine" className="bg-evidexa-charcoal text-white">Devanagari (Hindi)</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => runOcrMutation.mutate(selectedEngine)}
+              disabled={runOcrMutation.isPending}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-evidexa-cyan hover:bg-evidexa-aqua text-black font-semibold text-xs shadow-glow transition-all disabled:opacity-50"
+              title="Run or re-run forensic OCR analysis on this document"
+            >
+              {runOcrMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Play className="w-3 h-3" />
+              )}
+              <span>{runOcrMutation.isPending ? "Analyzing..." : ocrData ? "Re-run OCR" : "Run OCR"}</span>
+            </button>
+          </div>
+
           {/* Download Evidence */}
           <a
             href={documentDownloadUrl}
@@ -363,6 +405,8 @@ export const DocumentExaminePage: React.FC = () => {
                     }
                   }}
                   onNavigateToPage={(p) => setCurrentPage(p)}
+                  onRunOcr={(engine) => runOcrMutation.mutate(engine)}
+                  isOcrRunning={runOcrMutation.isPending}
                 />
               )}
 

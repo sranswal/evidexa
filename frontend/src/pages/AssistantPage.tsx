@@ -170,9 +170,6 @@ export const AssistantPage: React.FC = () => {
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
             <Bot className="w-6 h-6 text-evidexa-cyan" />
             <span>Grounded Investigation Assistant</span>
-            <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-evidexa-slate text-evidexa-cyan border border-evidexa-cyan/30">
-              Phase 4A
-            </span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Authoritative, evidence-grounded AI assistant with strict epistemic separation and traceable citations.
