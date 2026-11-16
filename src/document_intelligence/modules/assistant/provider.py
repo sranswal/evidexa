@@ -611,8 +611,57 @@ class HttpLlmProvider:
         raise ProviderResponseError("Exceeded maximum retries communicating with LLM provider.")
 
 
+class GeminiLlmProvider:
+    """Live Google Gemini provider generating grounded JSON responses."""
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gemini-2.5-flash",
+        timeout_seconds: float = 15.0,
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 2000,
+        temperature: float = 0.0,
+    ) -> str:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=self.api_key)
+        try:
+            response = client.models.generate_content(
+                model=self.model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                ),
+            )
+            return response.text or "{}"
+        except Exception as exc:
+            raise ProviderResponseError(f"Gemini generation error: {exc}") from exc
+
+
 def get_llm_provider(app_settings: Settings | None = None) -> LlmProviderProtocol:
     """Factory selecting configured LLM provider (defaults to MockLlmProvider for offline reliability)."""
+    from document_intelligence.core.ai_config import ai_config_manager
+
+    # Check runtime dynamic AI configuration first
+    if ai_config_manager.is_online and ai_config_manager.api_key:
+        return GeminiLlmProvider(
+            api_key=ai_config_manager.api_key,
+            model=ai_config_manager.model,
+        )
+
     cfg = app_settings or settings
     provider_type = cfg.llm_provider.lower().strip()
 

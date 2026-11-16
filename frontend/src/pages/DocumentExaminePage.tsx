@@ -49,16 +49,24 @@ export const DocumentExaminePage: React.FC = () => {
   const [copiedHash, setCopiedHash] = useState<boolean>(false);
   const [selectedEngine, setSelectedEngine] = useState<string>("hybrid-ocr-pipeline");
 
-  // Mutation to run OCR
+  // Mutation to run OCR or Gemini Multimodal Forensics
   const runOcrMutation = useMutation({
-    mutationFn: (analyzerId: string) => documentsApi.startOcr(caseId!, documentId!, analyzerId),
-    onSuccess: () => {
+    mutationFn: async (analyzerId: string) => {
+      if (analyzerId === "gemini-multimodal-analyzer") {
+        return documentsApi.analyzeDocument(caseId!, documentId!, "gemini-multimodal-analyzer");
+      }
+      return documentsApi.startOcr(caseId!, documentId!, analyzerId);
+    },
+    onSuccess: (_, analyzerId) => {
       queryClient.invalidateQueries({ queryKey: ['ocr', caseId, documentId] });
       queryClient.invalidateQueries({ queryKey: ['extraction', caseId, documentId] });
       queryClient.invalidateQueries({ queryKey: ['findings', caseId, documentId] });
       queryClient.invalidateQueries({ queryKey: ['evidence', caseId, documentId] });
       queryClient.invalidateQueries({ queryKey: ['runs', caseId, documentId] });
       queryClient.invalidateQueries({ queryKey: ['document', caseId, documentId] });
+      if (analyzerId === "gemini-multimodal-analyzer") {
+        setActiveTab("findings");
+      }
     },
   });
 
@@ -231,29 +239,42 @@ export const DocumentExaminePage: React.FC = () => {
             {copiedHash ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
           </button>
 
-          {/* Run OCR Pipeline Controls */}
+          {/* Run OCR & AI Forensic Controls */}
           <div className="flex items-center gap-1 bg-brand-midnight border border-brand-slate rounded p-0.5 text-xs">
             <select
               value={selectedEngine}
               onChange={(e) => setSelectedEngine(e.target.value)}
               className="bg-transparent text-slate-200 font-mono text-[11px] px-1 focus:outline-none cursor-pointer"
             >
-              <option value="hybrid-ocr-pipeline" className="bg-evidexa-charcoal text-white">Hybrid OCR</option>
+              <option value="hybrid-ocr-pipeline" className="bg-evidexa-charcoal text-white">Hybrid OCR (Vector/Rapid)</option>
               <option value="ppocrv5-devanagari-engine" className="bg-evidexa-charcoal text-white">Devanagari (Hindi)</option>
+              <option value="gemini-multimodal-analyzer" className="bg-evidexa-charcoal text-evidexa-cyan font-semibold">⚡ Gemini Vision AI</option>
             </select>
             <button
               type="button"
               onClick={() => runOcrMutation.mutate(selectedEngine)}
               disabled={runOcrMutation.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-evidexa-cyan hover:bg-evidexa-aqua text-black font-semibold text-xs shadow-glow transition-all disabled:opacity-50"
-              title="Run or re-run forensic OCR analysis on this document"
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded font-semibold text-xs shadow-glow transition-all disabled:opacity-50 ${
+                selectedEngine === "gemini-multimodal-analyzer"
+                  ? "bg-gradient-to-r from-evidexa-cyan to-teal-400 text-black hover:opacity-90"
+                  : "bg-evidexa-cyan hover:bg-evidexa-aqua text-black"
+              }`}
+              title="Run or re-run forensic analysis on this document"
             >
               {runOcrMutation.isPending ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
               ) : (
                 <Play className="w-3 h-3" />
               )}
-              <span>{runOcrMutation.isPending ? "Analyzing..." : ocrData ? "Re-run OCR" : "Run OCR"}</span>
+              <span>
+                {runOcrMutation.isPending
+                  ? "Analyzing..."
+                  : selectedEngine === "gemini-multimodal-analyzer"
+                  ? "Run Gemini Scan"
+                  : ocrData
+                  ? "Re-run OCR"
+                  : "Run OCR"}
+              </span>
             </button>
           </div>
 

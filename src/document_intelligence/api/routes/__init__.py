@@ -27,9 +27,11 @@ from document_intelligence.api.routes.organizations import router as organizatio
 from document_intelligence.api.routes.relationships import (
     router as relationships_router,
 )
+from document_intelligence.api.routes.system import router as system_router
 from document_intelligence.api.routes.understanding import router as understanding_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
+api_v1_router.include_router(system_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(organizations_router)
 api_v1_router.include_router(cases_router)

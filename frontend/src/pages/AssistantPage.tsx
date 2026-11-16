@@ -12,8 +12,11 @@ import {
   CheckCircle,
   HelpCircle,
   FileCheck2,
+  Zap,
+  Lock,
 } from "lucide-react";
 import { api } from "../api/client";
+import { aiConfigApi } from "../api/aiConfig";
 import { useCaseContext } from "../context/CaseContext";
 import { CitationCard } from "../components/assistant/CitationCard";
 import { EpistemicBreakdown } from "../components/assistant/EpistemicBreakdown";
@@ -84,6 +87,13 @@ export const AssistantPage: React.FC = () => {
   const [question, setQuestion] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<AssistantQuestionCategory | undefined>(undefined);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+
+  // 0. Fetch active AI configuration
+  const { data: aiConfig } = useQuery({
+    queryKey: ["ai-config"],
+    queryFn: () => aiConfigApi.getConfig(),
+    staleTime: 30000,
+  });
 
   // 1. Fetch case context summary
   const { data: summary } = useQuery<AssistantContextSummary>({
@@ -176,27 +186,47 @@ export const AssistantPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Evidence Status Pill */}
-        {summary && (
-          <div className="flex items-center gap-3 bg-evidexa-charcoal px-3 py-2 rounded-lg border border-evidexa-slate text-xs font-mono text-slate-300 shrink-0">
-            <div>
-              <span className="text-slate-400 block text-[10px] uppercase">Retrievable Context</span>
-              <span className="font-bold text-white">
-                {summary.counts.documents} docs • {summary.counts.forensic_findings + summary.counts.consistency_findings} findings • {summary.counts.entities} entities
-              </span>
+        {/* Engine & Evidence Status Pills */}
+        <div className="flex flex-wrap items-center gap-3">
+          {aiConfig?.mode === "ONLINE" ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-evidexa-cyan/15 border border-evidexa-cyan/40 text-evidexa-cyan text-xs font-mono shadow-[0_0_10px_rgba(72,202,228,0.2)]">
+              <Zap className="w-4 h-4 text-evidexa-cyan animate-pulse" />
+              <div>
+                <span className="text-[10px] text-slate-400 block uppercase">Active Intelligence</span>
+                <span className="font-bold text-white">{aiConfig.model} (Online)</span>
+              </div>
             </div>
-            {turns.length > 0 && (
-              <button
-                type="button"
-                onClick={clearSession}
-                className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors ml-2 border border-slate-700"
-                title="Clear conversation history"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-400 text-xs font-mono">
+              <Lock className="w-4 h-4 text-slate-400" />
+              <div>
+                <span className="text-[10px] text-slate-500 block uppercase">Active Intelligence</span>
+                <span className="font-bold text-slate-300">Deterministic Offline</span>
+              </div>
+            </div>
+          )}
+
+          {summary && (
+            <div className="flex items-center gap-3 bg-evidexa-charcoal px-3 py-2 rounded-lg border border-evidexa-slate text-xs font-mono text-slate-300 shrink-0">
+              <div>
+                <span className="text-slate-400 block text-[10px] uppercase">Retrievable Context</span>
+                <span className="font-bold text-white">
+                  {summary.counts.documents} docs • {summary.counts.forensic_findings + summary.counts.consistency_findings} findings • {summary.counts.entities} entities
+                </span>
+              </div>
+              {turns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearSession}
+                  className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors ml-2 border border-slate-700"
+                  title="Clear conversation history"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Mandatory Epistemic AI Notice Banner */}

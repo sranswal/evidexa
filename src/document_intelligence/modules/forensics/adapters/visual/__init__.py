@@ -4,6 +4,9 @@ from document_intelligence.modules.forensics.adapters.visual.copy_move_adapter i
     CopyMoveAnalyzer,
 )
 from document_intelligence.modules.forensics.adapters.visual.ela_adapter import ElaAnalyzer
+from document_intelligence.modules.forensics.adapters.visual.gemini_analyzer import (
+    GeminiMultimodalAnalyzer,
+)
 from document_intelligence.modules.forensics.adapters.visual.page_renderer import (
     DocumentPageRenderer,
     RenderedPage,
@@ -13,5 +16,6 @@ __all__ = [
     "CopyMoveAnalyzer",
     "DocumentPageRenderer",
     "ElaAnalyzer",
+    "GeminiMultimodalAnalyzer",
     "RenderedPage",
 ]

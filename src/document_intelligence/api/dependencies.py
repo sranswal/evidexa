@@ -67,6 +67,7 @@ from document_intelligence.modules.forensics.adapters.pdf_structural.adapter imp
 from document_intelligence.modules.forensics.adapters.visual import (
     CopyMoveAnalyzer,
     ElaAnalyzer,
+    GeminiMultimodalAnalyzer,
 )
 from document_intelligence.modules.forensics.application.processing_service import (
     ForensicProcessingService,
@@ -161,6 +162,8 @@ def get_analyzer_registry() -> AnalyzerRegistry:
         default_registry.register(HybridOcrAdapter())
     if not default_registry.get("ppocrv5-devanagari-engine"):
         default_registry.register(DevanagariRapidOcrAdapter())
+    if not default_registry.get("gemini-multimodal-analyzer"):
+        default_registry.register(GeminiMultimodalAnalyzer())
     return default_registry
 
 

@@ -1,14 +1,43 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronRight, LogOut, Server, Shield, User as UserIcon } from "lucide-react";
+import { ChevronRight, LogOut, Server, Shield, User as UserIcon, Lock, Zap, Settings } from "lucide-react";
 import { useCaseContext } from "../../context/CaseContext";
 import { useAuth } from "../../context/AuthContext";
 import { StatusBadge } from "../ui/Badge";
+import { aiConfigApi, type AiConfigData } from "../../api/aiConfig";
+import { AiEngineModal } from "./AiEngineModal";
 
 export const Header: React.FC = () => {
   const location = useLocation();
   const { activeCase } = useCaseContext();
   const { user, logout } = useAuth();
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiConfig, setAiConfig] = useState<AiConfigData | null>(null);
+
+  const refreshAiConfig = () => {
+    aiConfigApi
+      .getConfig()
+      .then(setAiConfig)
+      .catch(() => {
+        // Fallback to offline in case API call is unauthenticated or in tests
+        setAiConfig({
+          mode: "OFFLINE",
+          provider: "gemini",
+          model: "gemini-2.5-flash",
+          has_key: false,
+          masked_key: null,
+          is_validated: false,
+          validation_message: null,
+          last_validated_at: null,
+          last_latency_ms: null,
+          available_models: [],
+        });
+      });
+  };
+
+  useEffect(() => {
+    refreshAiConfig();
+  }, []);
 
   const getBreadcrumbs = () => {
     const parts = location.pathname.split("/").filter(Boolean);
@@ -70,6 +99,35 @@ export const Header: React.FC = () => {
           <span className="text-emerald-400 font-semibold">API ONLINE</span>
         </div>
 
+        {/* AI Operating Mode Switcher Pill */}
+        <button
+          type="button"
+          onClick={() => setIsAiModalOpen(true)}
+          title="Click to configure AI Engine & Gemini API key"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-all cursor-pointer ${
+            aiConfig?.mode === "ONLINE"
+              ? "bg-evidexa-cyan/15 border border-evidexa-cyan/50 text-evidexa-cyan hover:bg-evidexa-cyan/25 shadow-[0_0_10px_rgba(72,202,228,0.25)]"
+              : "bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500"
+          }`}
+        >
+          {aiConfig?.mode === "ONLINE" ? (
+            <>
+              <Zap className="w-3.5 h-3.5 text-evidexa-cyan animate-pulse" />
+              <span className="font-semibold text-[11px] tracking-wide uppercase">
+                AI: {aiConfig.model || "GEMINI"}
+              </span>
+            </>
+          ) : (
+            <>
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[11px] text-slate-400 tracking-wide uppercase">
+                AI: AIR-GAPPED (OFFLINE)
+              </span>
+            </>
+          )}
+          <Settings className="w-3 h-3 text-slate-500 ml-0.5" />
+        </button>
+
         <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-evidexa-charcoal border border-evidexa-slate text-slate-400">
           <Shield className="w-3.5 h-3.5 text-evidexa-cyan" />
           <span>ZERO-RETENTION / AUDITED</span>
@@ -97,6 +155,14 @@ export const Header: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* AI Operating Mode Modal */}
+      <AiEngineModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        currentConfig={aiConfig}
+        onConfigUpdated={refreshAiConfig}
+      />
     </header>
   );
 };
