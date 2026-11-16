@@ -123,7 +123,7 @@ describe("DocumentUploadModal Component", () => {
     });
 
     // Click submit
-    const submitBtn = screen.getByText("Ingest & Verify Document");
+    const submitBtn = screen.getByText("Ingest & Process Document");
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
