@@ -30,13 +30,13 @@ def test_ai_config_manager_offline_by_default() -> None:
 def test_ai_config_manager_switch_modes() -> None:
     mgr = AiConfigManager()
     # Switch to offline
-    res_off = mgr.update_config(mode="OFFLINE", model="gemini-2.5-flash")
+    res_off = mgr.update_config(mode="OFFLINE", model="gemini-3.8-flash")
     assert res_off["success"] is True
     assert mgr.mode == "OFFLINE"
     assert mgr.is_online is False
 
     # Switch to online without key should fail
-    res_fail = mgr.update_config(mode="ONLINE", api_key="", model="gemini-2.5-flash")
+    res_fail = mgr.update_config(mode="ONLINE", api_key="", model="gemini-3.8-flash")
     assert res_fail["success"] is False
     assert "required" in res_fail["error"]
 
@@ -47,7 +47,7 @@ def test_ai_config_manager_switch_modes() -> None:
         res_on = mgr.update_config(
             mode="ONLINE",
             api_key="AIzaSyTestMockKey12345",
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             validate=True,
         )
         assert res_on["success"] is True

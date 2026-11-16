@@ -27,7 +27,7 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
   onConfigUpdated,
 }) => {
   const [mode, setMode] = useState<"OFFLINE" | "ONLINE">("OFFLINE");
-  const [model, setModel] = useState<string>("gemini-2.5-flash");
+  const [model, setModel] = useState<string>("gemini-3.8-flash");
   const [apiKey, setApiKey] = useState<string>("");
   const [showKey, setShowKey] = useState<boolean>(false);
 
@@ -45,7 +45,11 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
   useEffect(() => {
     if (currentConfig) {
       setMode(currentConfig.mode || "OFFLINE");
-      setModel(currentConfig.model || "gemini-2.5-flash");
+      const defaultModel =
+        currentConfig.model && !currentConfig.model.includes("2.5")
+          ? currentConfig.model
+          : "gemini-3.8-flash";
+      setModel(defaultModel);
       setTestResult(null);
       setSaveError(null);
     }
@@ -213,14 +217,24 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
                 onChange={(e) => setModel(e.target.value)}
                 className="w-full bg-evidexa-midnight border border-evidexa-slate rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-evidexa-cyan"
               >
-                <option value="gemini-2.5-flash">
-                  Gemini 2.5 Flash (Recommended - Fastest Multimodal Forensics)
-                </option>
-                <option value="gemini-2.5-pro">
-                  Gemini 2.5 Pro (Deep Forensic Reasoning & Analysis)
-                </option>
-                <option value="gemini-1.5-flash">Gemini 1.5 Flash (High-Throughput)</option>
-                <option value="gemini-1.5-pro">Gemini 1.5 Pro (Extensive Context)</option>
+                {currentConfig?.available_models && currentConfig.available_models.length > 0 ? (
+                  currentConfig.available_models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="gemini-3.8-flash">
+                      Gemini 3.8 Flash (Recommended - Fastest Multimodal Forensics)
+                    </option>
+                    <option value="gemini-2.0-flash">
+                      Gemini 2.0 Flash (High-Throughput Multimodal)
+                    </option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Multimodal)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Extensive Context)</option>
+                  </>
+                )}
               </select>
             </div>
 

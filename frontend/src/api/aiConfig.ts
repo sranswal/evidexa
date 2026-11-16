@@ -48,7 +48,7 @@ export const aiConfigApi = {
       body: JSON.stringify(data),
     }),
 
-  testKey: (apiKey: string, model = "gemini-2.5-flash"): Promise<TestAiKeyResponse> =>
+  testKey: (apiKey: string, model = "gemini-3.8-flash"): Promise<TestAiKeyResponse> =>
     request<TestAiKeyResponse>("/system/ai-config/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -23,7 +23,7 @@ export const Header: React.FC = () => {
         setAiConfig({
           mode: "OFFLINE",
           provider: "gemini",
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           has_key: false,
           masked_key: null,
           is_validated: false,

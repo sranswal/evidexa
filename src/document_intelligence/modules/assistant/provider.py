@@ -617,7 +617,7 @@ class GeminiLlmProvider:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-3.8-flash",
         timeout_seconds: float = 15.0,
     ) -> None:
         self.api_key = api_key

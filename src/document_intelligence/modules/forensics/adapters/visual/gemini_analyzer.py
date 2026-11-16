@@ -177,7 +177,7 @@ class GeminiMultimodalAnalyzer(ForensicAnalyzer):
             )
 
             client = genai.Client(api_key=ai_config_manager.api_key)
-            model_to_use = ai_config_manager.model or "gemini-2.5-flash"
+            model_to_use = ai_config_manager.model or "gemini-3.8-flash"
 
             request_contents: Any = [
                 image_part,

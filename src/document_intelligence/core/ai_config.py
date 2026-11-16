@@ -20,18 +20,18 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_GEMINI_MODELS = [
     {
-        "id": "gemini-2.5-flash",
-        "name": "Gemini 2.5 Flash (Recommended - Fastest Multimodal Forensics)",
+        "id": "gemini-3.8-flash",
+        "name": "Gemini 3.8 Flash (Recommended - Fastest Multimodal Forensics)",
         "capabilities": ["vision", "text", "multilingual", "speed"],
     },
     {
-        "id": "gemini-2.5-pro",
-        "name": "Gemini 2.5 Pro (Deep Multimodal Forensic Reasoning)",
-        "capabilities": ["vision", "text", "complex-reasoning"],
+        "id": "gemini-2.0-flash",
+        "name": "Gemini 2.0 Flash (High-Throughput Multimodal)",
+        "capabilities": ["vision", "text", "speed"],
     },
     {
         "id": "gemini-1.5-flash",
-        "name": "Gemini 1.5 Flash (High-Throughput Vision & Text)",
+        "name": "Gemini 1.5 Flash (Standard Multimodal)",
         "capabilities": ["vision", "text"],
     },
     {
@@ -58,7 +58,7 @@ class AiConfigState:
 
     mode: Literal["OFFLINE", "ONLINE"] = "OFFLINE"
     provider: str = "gemini"
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.8-flash"
     api_key: str | None = None
     is_validated: bool = False
     validation_message: str | None = None
@@ -79,7 +79,7 @@ class AiConfigManager:
         self._state = AiConfigState(
             mode="ONLINE" if initial_key else "OFFLINE",
             provider="gemini",
-            model=settings.llm_model if "gemini" in settings.llm_model else "gemini-2.5-flash",
+            model=settings.llm_model if "gemini" in settings.llm_model else "gemini-3.8-flash",
             api_key=initial_key,
             is_validated=bool(initial_key),
             validation_message="Initialized from environment" if initial_key else None,
@@ -163,7 +163,7 @@ class AiConfigManager:
         self,
         mode: Literal["OFFLINE", "ONLINE"],
         provider: str = "gemini",
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-3.8-flash",
         api_key: str | None = None,
         validate: bool = True,
     ) -> dict[str, Any]:
