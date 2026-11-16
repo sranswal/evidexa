@@ -124,45 +124,68 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
     >
       <div className="space-y-5 text-sm">
         {/* Mode Selector Toggle */}
-        <div className="p-1 bg-evidexa-midnight border border-evidexa-slate rounded-lg grid grid-cols-2 gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("OFFLINE");
-              setTestResult(null);
-            }}
-            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md font-medium text-xs transition-all ${
-              mode === "OFFLINE"
-                ? "bg-slate-800 text-white shadow"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Lock className="w-4 h-4 text-slate-400" />
-            <span>Offline (Air-Gapped)</span>
-          </button>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+              Select AI Operating Mode
+            </span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              Current: <strong className={mode === "ONLINE" ? "text-evidexa-cyan" : "text-slate-300"}>{mode}</strong>
+            </span>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setMode("ONLINE")}
-            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md font-medium text-xs transition-all ${
-              mode === "ONLINE"
-                ? "bg-evidexa-cyan/20 border border-evidexa-cyan/40 text-evidexa-cyan shadow-[0_0_12px_rgba(72,202,228,0.25)]"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Zap className="w-4 h-4 text-evidexa-cyan animate-pulse" />
-            <span>Online (Google Gemini AI)</span>
-          </button>
+          <div className="p-1.5 bg-evidexa-midnight border border-evidexa-slate rounded-lg grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("OFFLINE");
+                setTestResult(null);
+              }}
+              className={`flex items-center justify-center gap-2 py-3 px-3 rounded-md font-semibold text-xs transition-all cursor-pointer ${
+                mode === "OFFLINE"
+                  ? "bg-slate-800 text-white border border-slate-600 shadow-md"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+              }`}
+            >
+              <Lock className="w-4 h-4 text-slate-400" />
+              <span>Offline (Air-Gapped)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMode("ONLINE")}
+              className={`flex items-center justify-center gap-2 py-3 px-3 rounded-md font-semibold text-xs transition-all cursor-pointer ${
+                mode === "ONLINE"
+                  ? "bg-evidexa-cyan/25 border border-evidexa-cyan text-evidexa-cyan shadow-[0_0_15px_rgba(72,202,228,0.35)]"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+              }`}
+            >
+              <Zap className={`w-4 h-4 text-evidexa-cyan ${mode === "ONLINE" ? "animate-pulse" : ""}`} />
+              <span>Online (Google Gemini AI)</span>
+            </button>
+          </div>
         </div>
 
         {/* Operating Description */}
         {mode === "OFFLINE" ? (
-          <div className="p-3 bg-slate-900/60 border border-slate-700/60 rounded-md flex items-start gap-3 text-xs text-slate-300">
-            <Cpu className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-white block mb-0.5">Air-Gapped Deterministic Mode</strong>
-              Zero network calls. Relies exclusively on local ONNX neural OCR, PikePDF structural
-              checks, 2D-DCT copy-move mathematics, and strict decimal accounting rules.
+          <div className="p-3.5 bg-slate-900/60 border border-slate-700/60 rounded-md flex flex-col gap-2 text-xs text-slate-300">
+            <div className="flex items-start gap-3">
+              <Cpu className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block mb-0.5">Air-Gapped Deterministic Mode Active</strong>
+                Zero network calls. Relies exclusively on local ONNX neural OCR, PikePDF structural
+                checks, 2D-DCT copy-move mathematics, and strict decimal accounting rules.
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setMode("ONLINE")}
+                className="text-xs font-medium text-evidexa-cyan hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Switch to Online Mode to enter Gemini API Key & select model</span>
+                <Zap className="w-3.5 h-3.5 text-evidexa-cyan" />
+              </button>
             </div>
           </div>
         ) : (

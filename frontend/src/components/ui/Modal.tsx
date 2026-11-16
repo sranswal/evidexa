@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export interface ModalProps {
@@ -21,15 +22,15 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="relative w-full max-w-lg bg-evidexa-charcoal border border-evidexa-slate rounded-xl shadow-2xl p-6 overflow-hidden">
-        <div className="flex items-center justify-between pb-4 border-b border-evidexa-slate mb-5">
+      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-evidexa-charcoal border border-evidexa-slate rounded-xl shadow-2xl p-6 overflow-hidden">
+        <div className="flex items-center justify-between pb-4 border-b border-evidexa-slate mb-5 shrink-0">
           <h2 id="modal-title" className="text-lg font-semibold text-white tracking-wide">
             {title}
           </h2>
@@ -41,9 +42,10 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div>{children}</div>
+        <div className="overflow-y-auto pr-1">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
