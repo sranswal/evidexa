@@ -7,6 +7,16 @@ Write-Host ""
 $RootPath = Resolve-Path "$PSScriptRoot\.."
 Set-Location $RootPath
 
+# Pre-flight check: ensure port 8000 is free from lingering/zombie processes
+Write-Host "[0/3] Checking port availability..." -ForegroundColor Yellow
+$Port8000InUse = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -eq "Listen" }
+if ($Port8000InUse) {
+    $StrayPid = $Port8000InUse[0].OwningProcess
+    Write-Host "[!] Port 8000 was held by lingering process (PID $StrayPid). Terminating to free port..." -ForegroundColor Yellow
+    Stop-Process -Id $StrayPid -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "[1/3] Bootstrapping administrative examiner account..." -ForegroundColor Yellow
 & "$RootPath\.venv\Scripts\python.exe" "$RootPath\scripts\bootstrap_dev_user.py"
 

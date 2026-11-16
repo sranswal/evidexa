@@ -7,6 +7,9 @@ echo.
 
 cd /d "%~dp0\.."
 
+echo [0/3] Checking port 8000 availability...
+powershell -NoProfile -Command "$conn = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }; if ($conn) { Write-Host 'Terminating conflicting process on port 8000 (PID ' $conn[0].OwningProcess ')...'; Stop-Process -Id $conn[0].OwningProcess -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }"
+
 echo [1/3] Verifying and bootstrapping examiner user...
 call .venv\Scripts\python.exe scripts\bootstrap_dev_user.py
 
