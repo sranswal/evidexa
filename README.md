@@ -16,7 +16,7 @@
 
 [![Hackathon Award](https://img.shields.io/badge/DataOps%20Hackathon%202026-3rd%20Prize%20Winner%20%F0%9F%A5%89-FF6B00.svg?style=for-the-badge)](https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-try--evidexa.vercel.app-48CAE4.svg?style=for-the-badge&logo=vercel)](https://try-evidexa.vercel.app)
-[![Slide Deck](https://img.shields.io/badge/Pitch%20Deck-Canva%20Presentation-00C4CC.svg?style=for-the-badge&logo=canva)](https://canva.link/70nwowy92z2cnrq)
+[![Slide Deck](https://img.shields.io/badge/Pitch%20Deck-Google%20Drive-4285F4.svg?style=for-the-badge&logo=googledrive)](https://drive.google.com/file/d/1DQp9lxrXZrUpZQoUvIU8SrJUzV0Qgm73/view)
 
 <br/>
 
@@ -33,7 +33,7 @@
 
 <p align="center">
   <a href="https://try-evidexa.vercel.app"><b>🚀 Try Interactive Live Sandbox</b></a> •
-  <a href="https://canva.link/70nwowy92z2cnrq"><b>📊 View Slide Deck</b></a> •
+  <a href="https://drive.google.com/file/d/1DQp9lxrXZrUpZQoUvIU8SrJUzV0Qgm73/view"><b>📊 View Slide Deck</b></a> •
   <a href="#video-walkthrough--demonstration"><b>🎬 Watch Video Walkthrough</b></a> •
   <a href="docs/PRODUCT_OVERVIEW.md">Product Overview</a> •
   <a href="docs/ARCHITECTURE.md">Architecture</a>
@@ -52,11 +52,11 @@
 
 <div align="center">
 
-[![EVIDEXA Video Walkthrough](assets/youtube_thumbnail.png)](https://www.youtube.com/watch?v=REPLACE_WITH_YOUR_YOUTUBE_ID)
+[![EVIDEXA Video Walkthrough](https://img.youtube.com/vi/4giiPUWornA/maxresdefault.jpg)](https://youtu.be/4giiPUWornA)
 
 *Click the preview banner above to watch the end-to-end forensic investigation walkthrough on YouTube.*
 
-[🚀 **Launch Interactive Sandbox**](https://try-evidexa.vercel.app) &bull; [📊 **View Slide Deck (Canva)**](https://canva.link/70nwowy92z2cnrq) &bull; [🥉 **DataOps Hackathon 2026 (3rd Prize)**](https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313)
+[🚀 **Launch Interactive Sandbox**](https://try-evidexa.vercel.app) &bull; [📊 **View Slide Deck (Google Drive)**](https://drive.google.com/file/d/1DQp9lxrXZrUpZQoUvIU8SrJUzV0Qgm73/view) &bull; [🥉 **DataOps Hackathon 2026 (3rd Prize)**](https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313)
 
 </div>
 
