@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Zap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/brand/Logo";
 import { ApiClientError } from "../api/client";
@@ -41,6 +42,28 @@ export const LoginPage: React.FC = () => {
         setError(err.message || "Invalid username or password.");
       } else {
         setError("Unable to authenticate. Please verify your credentials and try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleInstantDemoLogin = async () => {
+    setUsernameOrEmail("examiner@evidexa.local");
+    setPassword("Investigator2026!");
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await login("examiner@evidexa.local", "Investigator2026!");
+      navigate(from, { replace: true });
+    } catch (err: unknown) {
+      if (err instanceof ApiClientError) {
+        setError(err.message || "Invalid demo credentials.");
+      } else {
+        setError(
+          "Unable to authenticate. If the server was sleeping, it is waking up now — please try again in a few seconds."
+        );
       }
     } finally {
       setSubmitting(false);
@@ -138,6 +161,22 @@ export const LoginPage: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* 1-Click Instant Demo Login for Public Visitors */}
+        <div className="pt-2 border-t border-[#27272A]/80">
+          <button
+            type="button"
+            onClick={handleInstantDemoLogin}
+            disabled={submitting}
+            className="group relative flex w-full items-center justify-center gap-2 rounded-lg border border-[#48CAE4]/50 bg-[#48CAE4]/10 hover:bg-[#48CAE4]/20 px-4 py-2.5 text-xs font-bold text-[#48CAE4] shadow-[0_0_15px_rgba(72,202,228,0.15)] transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Zap className="h-4 w-4 text-[#48CAE4]" />
+            <span>⚡ 1-Click Instant Demo Login (Lead Examiner)</span>
+          </button>
+          <p className="mt-1.5 text-center text-[11px] text-zinc-500">
+            Pre-seeded with synthetic forensic cases (<code className="text-zinc-400">examiner@evidexa.local</code>)
+          </p>
+        </div>
 
         <div className="border-t border-[#27272A] pt-4 text-center space-y-2">
           <p className="text-xs text-zinc-400">

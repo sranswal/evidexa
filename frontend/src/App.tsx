@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./context/AuthContext";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { ServerWakeupBanner } from "./components/layout/ServerWakeupBanner";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AppShell } from "./components/layout/AppShell";
 import { LandingPage } from "./pages/LandingPage";
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <ServerWakeupBanner />
           <Routes>
             {/* Public Unauthenticated Routes */}
             <Route path="/" element={<LandingPage />} />

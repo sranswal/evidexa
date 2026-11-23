@@ -264,12 +264,21 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           )}
         </div>
 
-        {/* Forensic Policy Disclaimer */}
-        <div className="p-3 bg-evidexa-midnight/80 rounded border border-evidexa-slate/60 flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-          <span>
-            <strong>Forensic Invariant:</strong> Client validation checks file size and extension. The backend authoritatively verifies magic bytes, computes SHA-256 digests in isolated storage, and checks for identical duplicates.
-          </span>
+        {/* Forensic Policy & Volatile Sandbox Disclaimer */}
+        <div className="space-y-2">
+          <div className="p-3 bg-evidexa-midnight/80 rounded border border-evidexa-slate/60 flex items-start gap-2 text-[11px] text-slate-400 leading-relaxed">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>Forensic Invariant:</strong> Client validation checks file size and extension. The backend authoritatively verifies magic bytes, computes SHA-256 digests in isolated storage, and checks for identical duplicates.
+            </span>
+          </div>
+
+          <div className="p-2.5 bg-emerald-950/25 rounded border border-emerald-500/30 flex items-start gap-2 text-[11px] text-emerald-300/90 leading-relaxed">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>Volatile Privacy Sandbox:</strong> Custom uploaded documents are evaluated in temporary memory and automatically expunged after 1 hour. No confidential data or personal evidence is permanently retained on our servers.
+            </span>
+          </div>
         </div>
 
         {/* Modal Actions */}

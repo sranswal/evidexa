@@ -1,7 +1,10 @@
 """Main FastAPI application entrypoint."""
 
+import asyncio
+import shutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -39,6 +42,43 @@ from document_intelligence.infrastructure.persistence.models import Base
 logger = get_logger(__name__)
 
 
+async def _cleanup_ephemeral_sandbox_cases() -> None:
+    """Periodically purges non-seeded user uploads older than 1 hour to maintain an ephemeral privacy sandbox."""
+    while True:
+        try:
+            await asyncio.sleep(1800)  # Check every 30 minutes
+            from datetime import timedelta
+            from document_intelligence.domain.identifiers import utc_now
+            from document_intelligence.infrastructure.persistence.database import SessionLocal
+            from document_intelligence.infrastructure.persistence.models import CaseModel
+
+            cutoff = utc_now() - timedelta(hours=1)
+            with SessionLocal() as db:
+                expired_cases = (
+                    db.query(CaseModel)
+                    .filter(
+                        CaseModel.id.notin_(["case-demo-0881", "case-demo-0942"]),
+                        CaseModel.created_at < cutoff,
+                    )
+                    .all()
+                )
+                for case in expired_cases:
+                    case_orig = Path(settings.data_dir) / "originals" / case.id
+                    if case_orig.exists():
+                        shutil.rmtree(case_orig, ignore_errors=True)
+                    case_art = Path(settings.data_dir) / "artifacts" / case.id
+                    if case_art.exists():
+                        shutil.rmtree(case_art, ignore_errors=True)
+                    db.delete(case)
+                if expired_cases:
+                    db.commit()
+                    logger.info("Purged %d expired ephemeral sandbox case(s).", len(expired_cases))
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            logger.warning("Ephemeral cleanup notice: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup and shutdown lifespan coordinator."""
@@ -71,6 +111,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to recover stale processing runs during startup: %s", exc)
 
+    # 4. Idempotently ensure initial demo data and examiner account exist (for zero-shell cloud deployments like Render)
+    try:
+        from document_intelligence.infrastructure.persistence.database import SessionLocal
+        from document_intelligence.infrastructure.persistence.models import UserModel
+
+        with SessionLocal() as db:
+            examiner = db.query(UserModel).filter(UserModel.username == "examiner").first()
+            if not examiner:
+                logger.info("Initializing baseline demo dataset and examiner account on startup...")
+                from scripts.seed_demo_investigation import seed_demo_data
+
+                seed_demo_data()
+                logger.info("Baseline demo dataset initialized successfully.")
+    except Exception as exc:
+        logger.warning("Auto-seed on startup notice: %s", exc)
+
+    # 5. Launch background ephemeral sandbox cleaner
+    cleanup_task = asyncio.create_task(_cleanup_ephemeral_sandbox_cases())
+
     logger.info(
         "Application '%s' (v%s) started in '%s' environment.",
         settings.app_name,
@@ -78,6 +137,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.app_env,
     )
     yield
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     logger.info("Application shutting down.")
 
 
@@ -97,6 +161,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
