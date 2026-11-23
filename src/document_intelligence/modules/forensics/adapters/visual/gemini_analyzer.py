@@ -78,17 +78,30 @@ class GeminiMultimodalAnalyzer(ForensicAnalyzer):
     def _render_document_to_image(self, file_path: Path, media_type: str) -> tuple[bytes, str]:
         """Convert target document or first page of PDF into PNG bytes for multimodal inspection."""
         if media_type == "application/pdf":
-            import fitz  # type: ignore[import-not-found]
+            try:
+                import fitz
 
-            doc = fitz.open(file_path)
-            if doc.page_count < 1:
-                raise ValidationException("PDF contains zero pages.")
-            page = doc.load_page(0)
-            # Render at 150 DPI for crisp visual inspection
-            pix = page.get_pixmap(dpi=150)
-            img_bytes = pix.tobytes("png")
-            doc.close()
-            return img_bytes, "image/png"
+                doc = fitz.open(file_path)
+                if doc.page_count < 1:
+                    raise ValidationException("PDF contains zero pages.")
+                page = doc.load_page(0)
+                # Render at 150 DPI for crisp visual inspection
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                doc.close()
+                return img_bytes, "image/png"
+            except ImportError:
+                import io
+                import pypdfium2 as pdfium
+
+                pdf = pdfium.PdfDocument(file_path)
+                if len(pdf) < 1:
+                    raise ValidationException("PDF contains zero pages.")
+                page = pdf[0]
+                image = page.render(scale=2).to_pil()
+                buf = io.BytesIO()
+                image.save(buf, format="PNG")
+                return buf.getvalue(), "image/png"
 
         # Raster image formats
         with open(file_path, "rb") as f:
