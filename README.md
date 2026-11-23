@@ -14,25 +14,51 @@
 *Intelligence Behind Every Evidence.*  
 **Uncover the Truth. Verify Every Detail.**
 
-[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-FF6B00.svg?style=flat-square)](https://github.com/shubhamranswal/evidexa)
+[![Hackathon Award](https://img.shields.io/badge/DataOps%20Hackathon%202026-3rd%20Prize%20Winner%20%F0%9F%A5%89-FF6B00.svg?style=for-the-badge)](https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-try--evidexa.vercel.app-48CAE4.svg?style=for-the-badge&logo=vercel)](https://try-evidexa.vercel.app)
+[![Slide Deck](https://img.shields.io/badge/Pitch%20Deck-Canva%20Presentation-00C4CC.svg?style=for-the-badge&logo=canva)](https://canva.link/70nwowy92z2cnrq)
+
+<br/>
+
+[![Release](https://img.shields.io/badge/release-v0.1.0-FF6B00.svg?style=flat-square)](https://github.com/shubhamranswal/evidexa)
 [![Python](https://img.shields.io/badge/python-3.12-121214.svg?style=flat-square&logo=python)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-080808.svg?style=flat-square)](LICENSE)
 [![Architecture](https://img.shields.io/badge/architecture-modular--monolith-27272A.svg?style=flat-square)](docs/ARCHITECTURE.md)
-[![Verification](https://img.shields.io/badge/backend%20tests-596%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-105%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-417%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-113%20passed-10B981.svg?style=flat-square)](docs/DEVELOPMENT_STATUS.md)
 
 <p align="center">
   <b>EVIDEXA</b> is an enterprise-grade digital forensics and contextual intelligence platform designed to uncover document tampering, extract structured information with mathematical precision, correlate entities across complex records, and construct tamper-evident, court-defensible investigation dossiers.
 </p>
 
-[Product Overview](docs/PRODUCT_OVERVIEW.md) • [Feature Matrix](docs/FEATURES.md) • [Architecture](docs/ARCHITECTURE.md) • [Security Policy](docs/SECURITY.md) • [Roadmap](docs/ROADMAP.md) • [API Reference](docs/API.md)
+<p align="center">
+  <a href="https://try-evidexa.vercel.app"><b>🚀 Try Interactive Live Sandbox</b></a> •
+  <a href="https://canva.link/70nwowy92z2cnrq"><b>📊 View Slide Deck</b></a> •
+  <a href="#video-walkthrough--demonstration"><b>🎬 Watch Video Walkthrough</b></a> •
+  <a href="docs/PRODUCT_OVERVIEW.md">Product Overview</a> •
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
+</p>
 
 ---
 
 </div>
 
 > [!NOTE]
-> **Development Status:** EVIDEXA is currently under active pre-release engineering (`v0.1.0-alpha`). Core structural PDF forensics, visual tampering detection, hybrid bilingual (Hindi/English) OCR routing, entity resolution, relationship ontologies, the interactive visual investigation workspace, and tamper-evident dossier export are implemented and verified with **596 backend tests** and **105 frontend tests** passing. See [Development Status](docs/DEVELOPMENT_STATUS.md) and [Feature Matrix](docs/FEATURES.md) for granular readiness details.
+> **Development Status:** EVIDEXA is verified and live (`v0.1.0`). Core structural PDF forensics, visual tampering detection, hybrid bilingual (Hindi/English) OCR routing, entity resolution, relationship ontologies, the interactive visual investigation workspace, and tamper-evident dossier export are implemented and verified with **417 backend tests** and **113 frontend tests** passing.
+
+---
+
+## Video Walkthrough & Demonstration
+
+<div align="center">
+
+[![EVIDEXA Video Walkthrough](assets/youtube_thumbnail.png)](https://www.youtube.com/watch?v=REPLACE_WITH_YOUR_YOUTUBE_ID)
+
+*Click the preview banner above to watch the end-to-end forensic investigation walkthrough on YouTube.*
+
+[🚀 **Launch Interactive Sandbox**](https://try-evidexa.vercel.app) &bull; [📊 **View Slide Deck (Canva)**](https://canva.link/70nwowy92z2cnrq) &bull; [🥉 **DataOps Hackathon 2026 (3rd Prize)**](https://unstop.com/hackathons/dataops-innovation-hackathon-hackthecore-1765313)
+
+</div>
 
 ---
 
