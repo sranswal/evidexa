@@ -49,6 +49,14 @@ export const DocumentExaminePage: React.FC = () => {
   const [copiedHash, setCopiedHash] = useState<boolean>(false);
   const [selectedEngine, setSelectedEngine] = useState<string>("hybrid-ocr-pipeline");
 
+  // Reset token/evidence selection on document change
+  React.useEffect(() => {
+    setSelectedToken(null);
+    setSelectedEvidence(null);
+    setHighlightedBox(null);
+    setCurrentPage(1);
+  }, [documentId]);
+
   // Mutation to run OCR or Gemini Multimodal Forensics
   const runOcrMutation = useMutation({
     mutationFn: async (analyzerId: string) => {

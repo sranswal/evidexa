@@ -132,11 +132,21 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   useEffect(() => {
     loadPdf();
     return () => {
-      if (renderTaskRef.current) {
-        renderTaskRef.current.cancel();
+      try {
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel();
+          renderTaskRef.current = null;
+        }
+      } catch {
+        // ignore cancellation on unmount
       }
-      if (pdfDocRef.current) {
-        pdfDocRef.current.destroy();
+      try {
+        if (pdfDocRef.current) {
+          pdfDocRef.current.destroy().catch(() => {});
+          pdfDocRef.current = null;
+        }
+      } catch {
+        // ignore destroy errors on unmount
       }
     };
   }, [loadPdf]);
@@ -145,17 +155,30 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
   const renderPdfPage = useCallback(async () => {
     if (!isPdf || !pdfDocRef.current || !canvasRef.current) return;
 
-    if (renderTaskRef.current) {
-      renderTaskRef.current.cancel();
+    try {
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+    } catch {
+      // ignore
     }
 
     setRendering(true);
 
     try {
       const page = await pdfDocRef.current.getPage(currentPage);
+      // Guard: re-check canvasRef and pdfDocRef after async getPage
       const canvas = canvasRef.current;
+      if (!canvas) {
+        setRendering(false);
+        return;
+      }
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        setRendering(false);
+        return;
+      }
 
       const viewport = page.getViewport({ scale, rotation });
 
@@ -171,6 +194,7 @@ export const PdfDocumentViewer: React.FC<PdfDocumentViewerProps> = ({
       const renderTask = page.render(renderContext);
       renderTaskRef.current = renderTask;
       await renderTask.promise;
+      renderTaskRef.current = null;
       setRendering(false);
     } catch (err: any) {
       if (err?.name !== 'RenderingCancelledException') {

@@ -193,7 +193,7 @@ export const OcrInspector: React.FC<OcrInspectorProps> = ({
     const q = searchQuery.toLowerCase();
     return linesList.filter(
       (l) =>
-        l.rawText.toLowerCase().includes(q) ||
+        (l.rawText || '').toLowerCase().includes(q) ||
         (l.normalizedText && l.normalizedText.toLowerCase().includes(q))
     );
   }, [targetPages, searchQuery, activeLayer]);

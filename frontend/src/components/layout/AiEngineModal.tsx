@@ -46,7 +46,10 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
     if (currentConfig) {
       setMode(currentConfig.mode || "OFFLINE");
       const defaultModel =
-        currentConfig.model && !currentConfig.model.includes("2.5")
+        currentConfig.model &&
+        !currentConfig.model.includes("2.5") &&
+        !currentConfig.model.includes("2.0") &&
+        !currentConfig.model.includes("1.5")
           ? currentConfig.model
           : "gemini-3.8-flash";
       setModel(defaultModel);
@@ -228,11 +231,15 @@ export const AiEngineModal: React.FC<AiEngineModalProps> = ({
                     <option value="gemini-3.8-flash">
                       Gemini 3.8 Flash (Recommended - Fastest Multimodal Forensics)
                     </option>
-                    <option value="gemini-2.0-flash">
-                      Gemini 2.0 Flash (High-Throughput Multimodal)
+                    <option value="gemini-3.8-flash-lite">
+                      Gemini 3.8 Flash-Lite (High-Throughput & Fast)
                     </option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Multimodal)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Extensive Context)</option>
+                    <option value="gemini-3.6-flash">
+                      Gemini 3.6 Flash (Stable Multimodal)
+                    </option>
+                    <option value="gemini-3.5-flash-lite">
+                      Gemini 3.5 Flash-Lite (Lightweight Extraction)
+                    </option>
                   </>
                 )}
               </select>
